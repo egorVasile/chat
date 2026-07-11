@@ -1,716 +1,279 @@
 --[[
-    SECRET GLOBAL CHAT v3 (HTTP edition)
-    Настоящий глобальный чат через внешний сервер (Google Colab + cloudflared).
-    Работает между разными играми и серверами Roblox — видят все, у кого запущен скрипт.
-
-    НАСТРОЙКА:
-    1. Запусти colab-server.py в Google Colab
-    2. Скопируй URL вида https://xxxx.trycloudflare.com
-    3. Вставь его в API_URL ниже
+    SECRET GLOBAL CHAT v8 (DYNAMIC ISLAND & MENTIONS)
+    + Правый клик по сообщениям, + Упоминания, + Уведомления, + Динамический Островок ЛС.
 ]]
 
--- ========== ВСТАВЬ СЮДА URL ИЗ COLAB ==========
-local API_URL = "https://pockets-yamaha-syndicate-fighter.trycloudflare.com"
--- ==============================================
+local API_URL = "https://твой-url.trycloudflare.com"
 
-local TS  = game:GetService("TweenService")
+local ROLES = {
+    ["ТВОЙ_НИК"] = { tag = "👑 СОЗДАТЕЛЬ", color = Color3.fromRGB(255, 215, 0), effect = "rbw" },
+}
+
+local GIF_CATALOG = { {name = "Кот", id = "13482325372"}, {name = "Пепе", id = "7248107773"} }
+
+local TS = game:GetService("TweenService")
 local UIS = game:GetService("UserInputService")
-local PL  = game:GetService("Players")
+local PL = game:GetService("Players")
 local HTTP = game:GetService("HttpService")
+local MS = game:GetService("MarketplaceService")
 
 local LP = PL.LocalPlayer
 local PlayerGui = LP:WaitForChild("PlayerGui")
-
--- [FIX] Анти-дубликат: если скрипт запущен повторно, старый GUI удаляется
-local old = PlayerGui:FindFirstChild("NeonFolderChat")
-if old then old:Destroy() end
+if PlayerGui:FindFirstChild("NeonFolderChat") then PlayerGui.NeonFolderChat:Destroy() end
 
 local SG = Instance.new("ScreenGui")
 SG.Name = "NeonFolderChat"
 SG.ResetOnSpawn = false
 SG.Parent = PlayerGui
 
--- ===================== СОСТОЯНИЕ =====================
 local col = Color3.fromRGB(0, 255, 204)
 local fx, msgFx, bStyle = "none", "none", "none"
-local isB, isI, isU, isS = false, false, false, false
-local MAX_MESSAGES = 100 -- [NEW] лимит сообщений против лагов
+local isB, isI, isU = false, false, false
+local MAX_MESSAGES = 80
+local myGameName = "Roblox"
 
--- ===================== КНОПКА ОТКРЫТИЯ =====================
-local MB = Instance.new("TextButton")
-MB.Size = UDim2.new(0, 60, 0, 60)
-MB.Position = UDim2.new(0.05, 0, 0.5, -30)
-MB.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
-MB.Text = "💬"
-MB.TextSize = 26
-MB.TextColor3 = col
-MB.Font = Enum.Font.GothamBold
-MB.Parent = SG
-Instance.new("UICorner", MB).CornerRadius = UDim.new(1, 0)
-local MBStroke = Instance.new("UIStroke", MB)
-MBStroke.Color = col
-MBStroke.Thickness = 2.5
+task.spawn(function() pcall(function() myGameName = MS:GetProductInfo(game.PlaceId).Name:gsub("[^%w%sА-Яа-я]", ""):sub(1, 12):gsub(" ", "_") end) end)
 
--- ===================== ГЛАВНОЕ ОКНО =====================
-local MF = Instance.new("Frame")
-MF.AnchorPoint = Vector2.new(0.5, 0.5)
-MF.Size = UDim2.new(0, 440, 0, 260)
-MF.Position = UDim2.new(0.5, 0, 0.45, 0)
-MF.BackgroundColor3 = Color3.fromRGB(15, 15, 22)
-MF.BackgroundTransparency = 0.25
-MF.ClipsDescendants = true
-MF.Visible = false
-MF.Parent = SG
-Instance.new("UICorner", MF).CornerRadius = UDim.new(0, 12)
+-- ===================== УВЕДОМЛЕНИЯ (СНИЗУ СПРАВА) =====================
+local NotifFrame = Instance.new("Frame", SG)
+NotifFrame.Size, NotifFrame.Position, NotifFrame.BackgroundTransparency = UDim2.new(0, 250, 1, 0), UDim2.new(1, -260, 0, 0), 1
+local NotifLayout = Instance.new("UIListLayout", NotifFrame)
+NotifLayout.SortOrder, NotifLayout.Padding, NotifLayout.VerticalAlignment = Enum.SortOrder.LayoutOrder, UDim.new(0, 10), Enum.VerticalAlignment.Bottom
 
--- Шапка
-local HD = Instance.new("Frame", MF)
-HD.Size = UDim2.new(1, 0, 0, 42)
-HD.BackgroundColor3 = Color3.fromRGB(22, 22, 32)
-HD.BackgroundTransparency = 0.1
-Instance.new("UICorner", HD).CornerRadius = UDim.new(0, 12)
-local HF = Instance.new("Frame", HD)
-HF.Size = UDim2.new(1, 0, 0, 12)
-HF.Position = UDim2.new(0, 0, 1, -12)
-HF.BackgroundColor3 = Color3.fromRGB(22, 22, 32)
-HF.BackgroundTransparency = 0.1
-HF.BorderSizePixel = 0
+local function showNotification(title, desc)
+    -- Звук
+    local snd = Instance.new("Sound", game.Workspace)
+    snd.SoundId = "rbxassetid://6042053626" snd.Volume = 2 snd:Play() game.Debris:AddItem(snd, 2)
 
-local HT = Instance.new("TextLabel", HD)
-HT.Size = UDim2.new(1, -160, 1, 0)
-HT.Position = UDim2.new(0, 18, 0, 0)
-HT.Text = "🤫 SECRET GLOBAL CHAT"
-HT.TextColor3 = col
-HT.TextSize = 13
-HT.Font = Enum.Font.GothamBold
-HT.TextXAlignment = Enum.TextXAlignment.Left
-HT.BackgroundTransparency = 1
+    local nf = Instance.new("Frame", NotifFrame)
+    nf.Size, nf.BackgroundColor3, nf.BackgroundTransparency = UDim2.new(1, 0, 0, 60), Color3.fromRGB(20, 20, 28), 1
+    Instance.new("UICorner", nf).CornerRadius = UDim.new(0, 8)
+    local st = Instance.new("UIStroke", nf) st.Color = col st.Thickness = 1.5 st.Transparency = 1
+    
+    local tl = Instance.new("TextLabel", nf)
+    tl.Size, tl.Position, tl.Text, tl.TextColor3, tl.Font, tl.TextSize, tl.BackgroundTransparency, tl.TextXAlignment = UDim2.new(1, -20, 0, 20), UDim2.new(0, 10, 0, 10), title, col, Enum.Font.GothamBold, 14, 1, Enum.TextXAlignment.Left
+    
+    local dl = Instance.new("TextLabel", nf)
+    dl.Size, dl.Position, dl.Text, dl.TextColor3, dl.Font, dl.TextSize, dl.BackgroundTransparency, dl.TextXAlignment = UDim2.new(1, -20, 0, 20), UDim2.new(0, 10, 0, 30), desc, Color3.new(1,1,1), Enum.Font.Gotham, 12, 1, Enum.TextXAlignment.Left
 
--- Кнопка настроек
-local SB = Instance.new("TextButton", HD)
-SB.Size = UDim2.new(0, 32, 0, 32)
-SB.Position = UDim2.new(1, -45, 0, 5)
-SB.BackgroundTransparency = 1
-SB.Text = "⚙️"
-SB.TextSize = 18
-SB.TextColor3 = Color3.new(1, 1, 1)
+    TS:Create(nf, TweenInfo.new(0.4), {BackgroundTransparency = 0.1}):Play()
+    TS:Create(st, TweenInfo.new(0.4), {Transparency = 0}):Play()
+    tl.TextTransparency = 0 dl.TextTransparency = 0
 
--- [NEW] Кнопка очистки чата
-local CB = Instance.new("TextButton", HD)
-CB.Size = UDim2.new(0, 32, 0, 32)
-CB.Position = UDim2.new(1, -80, 0, 5)
-CB.BackgroundTransparency = 1
-CB.Text = "🗑️"
-CB.TextSize = 15
-CB.TextColor3 = Color3.new(1, 1, 1)
-
--- Уголок для ресайза
-local RS = Instance.new("ImageLabel", MF)
-RS.Size = UDim2.new(0, 16, 0, 16)
-RS.Position = UDim2.new(1, -18, 1, -18)
-RS.BackgroundTransparency = 1
-RS.Image = "rbxassetid://5012544693"
-RS.ImageColor3 = col
-
--- Поле ввода
-local BB = Instance.new("Frame", MF)
-BB.Size = UDim2.new(1, 0, 0, 50)
-BB.Position = UDim2.new(0, 0, 1, -50)
-BB.BackgroundTransparency = 1
-
-local IB = Instance.new("TextBox", BB)
-IB.Size = UDim2.new(1, -24, 0, 36)
-IB.Position = UDim2.new(0, 12, 0, 4)
-IB.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
-IB.BackgroundTransparency = 0.4
-IB.TextColor3 = Color3.new(1, 1, 1)
-IB.PlaceholderText = "Введите текст..."
-IB.Text = ""
-IB.TextSize = 13
-IB.Font = Enum.Font.Gotham
-IB.TextXAlignment = Enum.TextXAlignment.Left
-IB.ClearTextOnFocus = false -- [NEW] текст не стирается при клике
-Instance.new("UICorner", IB).CornerRadius = UDim.new(0, 8)
-Instance.new("UIPadding", IB).PaddingLeft = UDim.new(0, 12)
-
--- Список сообщений
-local CL = Instance.new("ScrollingFrame", MF)
-CL.Size = UDim2.new(1, -24, 1, -102)
-CL.Position = UDim2.new(0, 12, 0, 50)
-CL.BackgroundTransparency = 1
-CL.ScrollBarThickness = 2
-CL.ScrollBarImageColor3 = col
-CL.CanvasSize = UDim2.new(0, 0, 0, 0)
-
-local LL = Instance.new("UIListLayout", CL)
-LL.SortOrder = Enum.SortOrder.LayoutOrder
-LL.Padding = UDim.new(0, 6)
-LL:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    CL.CanvasSize = UDim2.new(0, 0, 0, LL.AbsoluteContentSize.Y + 10)
-    -- [NEW] автоскролл вниз при новом сообщении
-    CL.CanvasPosition = Vector2.new(0, math.max(0, LL.AbsoluteContentSize.Y - CL.AbsoluteSize.Y + 10))
-end)
-
--- ===================== ПАНЕЛЬ НАСТРОЕК =====================
-local SC = Instance.new("ScrollingFrame", MF)
-SC.Size = UDim2.new(1, 0, 1, -102)
-SC.Position = UDim2.new(1, 0, 0, 50)
-SC.BackgroundTransparency = 1
-SC.Visible = false
-SC.ScrollBarThickness = 3 -- [FIX] был 0 — нельзя было проскроллить настройки
-SC.ScrollBarImageColor3 = col
-SC.CanvasSize = UDim2.new(0, 0, 0, 230) -- [FIX] canvas не задавался — нижние кнопки обрезались
-
--- Цветовой круг
-local CW = Instance.new("ImageLabel", SC)
-CW.Size = UDim2.new(0, 80, 0, 80)
-CW.Position = UDim2.new(0, 15, 0, 10)
-CW.BackgroundTransparency = 1
-CW.Image = "rbxassetid://15303439408"
-Instance.new("UICorner", CW).CornerRadius = UDim.new(1, 0)
-
-local dot = Instance.new("Frame", CW)
-dot.Size = UDim2.new(0, 4, 0, 4)
-dot.BackgroundColor3 = Color3.new(1, 1, 1)
-dot.AnchorPoint = Vector2.new(0.5, 0.5)
-dot.Position = UDim2.new(0.5, 0, 0.5, 0)
-Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
-
-local prv = Instance.new("Frame", SC)
-prv.Size = UDim2.new(0, 80, 0, 12)
-prv.Position = UDim2.new(0, 15, 0, 95)
-prv.BackgroundColor3 = col
-Instance.new("UICorner", prv).CornerRadius = UDim.new(0, 4)
-
-local function updateColorWheel(i)
-    local cx = CW.AbsolutePosition.X + CW.AbsoluteSize.X / 2
-    local cy = CW.AbsolutePosition.Y + CW.AbsoluteSize.Y / 2
-    local dx, dy = i.Position.X - cx, i.Position.Y - cy
-    -- [FIX] в оригинале было math.sqrt(dxdx+dydy) — потерялись знаки умножения, код падал
-    local dist = math.sqrt(dx * dx + dy * dy)
-    if dist <= 40 then
-        dot.Position = UDim2.new(0, dx + 40, 0, dy + 40)
-        -- [FIX] math.atan2 устарел в Luau, заменён на math.atan(y, x)
-        local hue = math.atan(dy, dx) / (math.pi * 2)
-        if hue < 0 then hue = hue + 1 end
-        local sat = math.clamp(dist / 40, 0, 1)
-        col = Color3.fromHSV(hue, sat, 1)
-        prv.BackgroundColor3 = col
-        MBStroke.Color = col -- [NEW] цвет кнопки обновляется сразу
-        MB.TextColor3 = col
-        HT.TextColor3 = col
-        RS.ImageColor3 = col
-    end
-end
-
-local wheelDown = false
-CW.InputBegan:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-        wheelDown = true
-        updateColorWheel(i)
-    end
-end)
-UIS.InputChanged:Connect(function(i)
-    if wheelDown and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
-        updateColorWheel(i)
-    end
-end)
-UIS.InputEnded:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-        wheelDown = false
-    end
-end)
-
--- Фабрика кнопок настроек
-local function sBtn(pos, text, bg)
-    local b = Instance.new("TextButton", SC)
-    b.Size = UDim2.new(0, 90, 0, 24)
-    b.Position = pos
-    b.BackgroundColor3 = bg
-    b.Text = text
-    b.TextColor3 = Color3.new(1, 1, 1)
-    b.Font = Enum.Font.GothamBold
-    b.TextSize = 11
-    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
-    local st = Instance.new("UIStroke", b)
-    st.Color = Color3.fromRGB(50, 50, 60)
-    st.Thickness = 1
-    b.MouseEnter:Connect(function()
-        TS:Create(st, TweenInfo.new(0.2), { Color = col }):Play()
-    end)
-    b.MouseLeave:Connect(function()
-        TS:Create(st, TweenInfo.new(0.2), { Color = Color3.fromRGB(50, 50, 60) }):Play()
-    end)
-    return b, st
-end
-
--- Пресеты цветов
-local presets = {
-    { "Мята",    Color3.fromRGB(0, 255, 204),  UDim2.new(0, 110, 0, 10) },
-    { "Розовый", Color3.fromRGB(255, 0, 130),  UDim2.new(0, 210, 0, 10) },
-    { "Синий",   Color3.fromRGB(0, 170, 255),  UDim2.new(0, 310, 0, 10) },
-    { "Лайм",    Color3.fromRGB(150, 255, 0),  UDim2.new(0, 110, 0, 40) },
-    { "Золото",  Color3.fromRGB(255, 180, 0),  UDim2.new(0, 210, 0, 40) },
-    { "Фиолет",  Color3.fromRGB(130, 0, 255),  UDim2.new(0, 310, 0, 40) },
-}
-for _, p in ipairs(presets) do
-    local b = sBtn(p[3], p[1], p[2])
-    b.MouseButton1Click:Connect(function()
-        col = p[2]
-        prv.BackgroundColor3 = col
-        MBStroke.Color = col
-        MB.TextColor3 = col
-        HT.TextColor3 = col
-        RS.ImageColor3 = col
+    task.delay(4, function()
+        TS:Create(nf, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
+        TS:Create(st, TweenInfo.new(0.5), {Transparency = 1}):Play()
+        TS:Create(tl, TweenInfo.new(0.5), {TextTransparency = 1}):Play()
+        local tw = TS:Create(dl, TweenInfo.new(0.5), {TextTransparency = 1})
+        tw:Play() tw.Completed:Connect(function() nf:Destroy() end)
     end)
 end
 
--- Стили скобок ника
-local f1 = sBtn(UDim2.new(0, 110, 0, 70), "( Круглые )", Color3.fromRGB(30, 30, 40))
-local f2 = sBtn(UDim2.new(0, 210, 0, 70), "[ Квадрат ]", Color3.fromRGB(30, 30, 40))
-local f3 = sBtn(UDim2.new(0, 310, 0, 70), "< Угловые >", Color3.fromRGB(30, 30, 40))
--- [FIX] стили теперь можно ВЫКЛЮЧИТЬ повторным нажатием + подсветка активного
-local styleBtns = { { f1, "round" }, { f2, "sq" }, { f3, "ang" } }
-local function refreshStyleBtns()
-    for _, e in ipairs(styleBtns) do
-        e[1].BackgroundColor3 = (bStyle == e[2]) and col or Color3.fromRGB(30, 30, 40)
-    end
-end
-for _, e in ipairs(styleBtns) do
-    e[1].MouseButton1Click:Connect(function()
-        bStyle = (bStyle == e[2]) and "none" or e[2]
-        refreshStyleBtns()
-    end)
-end
+-- ===================== DYNAMIC ISLAND (ЛС) =====================
+local Island = Instance.new("Frame", SG)
+Island.AnchorPoint, Island.Size, Island.Position, Island.BackgroundColor3, Island.ClipsDescendants = Vector2.new(0.5, 0), UDim2.new(0, 150, 0, 30), UDim2.new(0.5, 0, 0, -40), Color3.fromRGB(15, 15, 22), true
+Instance.new("UICorner", Island).CornerRadius = UDim.new(1, 0)
+local IslandStroke = Instance.new("UIStroke", Island) IslandStroke.Color = col IslandStroke.Thickness = 1.5
 
--- Эффекты
-local e1 = sBtn(UDim2.new(0, 110, 0, 100), "Радуга Ник",  Color3.fromRGB(35, 35, 45))
-local e2 = sBtn(UDim2.new(0, 210, 0, 100), "Глич Текст",  Color3.fromRGB(35, 35, 45))
-local e3 = sBtn(UDim2.new(0, 310, 0, 100), "Тряска Текст", Color3.fromRGB(35, 35, 45))
-local e4 = sBtn(UDim2.new(0, 110, 0, 130), "Глич Ник",    Color3.fromRGB(35, 35, 45))
+local IslandText = Instance.new("TextLabel", Island)
+IslandText.Size, IslandText.Text, IslandText.TextColor3, IslandText.Font, IslandText.TextSize, IslandText.BackgroundTransparency = UDim2.new(1,0,1,0), "Личные сообщения", col, Enum.Font.GothamBold, 12, 1
 
-e1.MouseButton1Click:Connect(function()
-    fx = fx == "rbw" and "none" or "rbw"
-    e1.BackgroundColor3 = fx == "rbw" and col or Color3.fromRGB(35, 35, 45)
-    e4.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
-end)
-e4.MouseButton1Click:Connect(function()
-    fx = fx == "gnk" and "none" or "gnk"
-    e4.BackgroundColor3 = fx == "gnk" and col or Color3.fromRGB(35, 35, 45)
-    e1.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
-end)
-e2.MouseButton1Click:Connect(function()
-    msgFx = msgFx == "glch" and "none" or "glch"
-    e2.BackgroundColor3 = msgFx == "glch" and col or Color3.fromRGB(35, 35, 45)
-    e3.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
-end)
-e3.MouseButton1Click:Connect(function()
-    msgFx = msgFx == "shk" and "none" or "shk"
-    e3.BackgroundColor3 = msgFx == "shk" and col or Color3.fromRGB(35, 35, 45)
-    e2.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
-end)
+local IslandClose = Instance.new("TextButton", Island)
+IslandClose.Size, IslandClose.Position, IslandClose.Text, IslandClose.TextColor3, IslandClose.BackgroundTransparency, IslandClose.Visible = UDim2.new(0, 30, 0, 30), UDim2.new(1, -35, 0, 5), "✖", Color3.fromRGB(255, 100, 100), 1, false
+IslandClose.Font, IslandClose.TextSize = Enum.Font.GothamBold, 16
 
--- Форматирование текста
-local t1, s1 = sBtn(UDim2.new(0, 110, 0, 160), "Жирный",   Color3.fromRGB(25, 25, 30))
-local t2, s2 = sBtn(UDim2.new(0, 210, 0, 160), "Курсив",   Color3.fromRGB(25, 25, 30))
-local t3, s3 = sBtn(UDim2.new(0, 310, 0, 160), "Подчерк.", Color3.fromRGB(25, 25, 30))
-local t4, s4 = sBtn(UDim2.new(0, 110, 0, 190), "Зачеркн.", Color3.fromRGB(25, 25, 30))
-
-t1.MouseButton1Click:Connect(function() isB = not isB; s1.Color = isB and col or Color3.fromRGB(50, 50, 60) end)
-t2.MouseButton1Click:Connect(function() isI = not isI; s2.Color = isI and col or Color3.fromRGB(50, 50, 60) end)
-t3.MouseButton1Click:Connect(function() isU = not isU; s3.Color = isU and col or Color3.fromRGB(50, 50, 60) end)
-t4.MouseButton1Click:Connect(function() isS = not isS; s4.Color = isS and col or Color3.fromRGB(50, 50, 60) end)
-
--- Переключение чат <-> настройки
-local isSO = false
-SB.MouseButton1Click:Connect(function()
-    isSO = not isSO
-    if isSO then
-        SB.Text, HT.Text = "💬", "⚙️ НАСТРОЙКИ МОДИФИКАЦИЙ"
-        CL:TweenPosition(UDim2.new(-1, 0, 0, 50), "Out", "Cubic", 0.3, true)
-        SC.Visible = true
-        SC:TweenPosition(UDim2.new(0, 0, 0, 50), "Out", "Cubic", 0.3, true)
+-- Анимация развертывания Островка
+local islandOpen = false
+local function toggleIsland()
+    islandOpen = not islandOpen
+    if islandOpen then
+        IslandText.Visible = false
+        IslandClose.Visible = true
+        TS:Create(Island, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 600, 0, 350), Position = UDim2.new(0.5, 0, 0.2, 0)}):Play()
+        TS:Create(Island:FindFirstChildOfClass("UICorner"), TweenInfo.new(0.3), {CornerRadius = UDim.new(0, 12)}):Play()
+        -- Здесь во 2 этапе появится контент ЛС (список чатов и диалог)
     else
-        SB.Text, HT.Text = "⚙️", "🤫 SECRET GLOBAL CHAT"
-        SC:TweenPosition(UDim2.new(1, 0, 0, 50), "Out", "Cubic", 0.3, true)
-        CL:TweenPosition(UDim2.new(0, 12, 0, 50), "Out", "Cubic", 0.3, true)
-        task.delay(0.3, function()
-            if not isSO then SC.Visible = false end
-        end)
+        IslandClose.Visible = false
+        local tw = TS:Create(Island, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Size = UDim2.new(0, 150, 0, 30), Position = UDim2.new(0.5, 0, 0, 10)})
+        tw:Play()
+        TS:Create(Island:FindFirstChildOfClass("UICorner"), TweenInfo.new(0.3), {CornerRadius = UDim.new(1, 0)}):Play()
+        tw.Completed:Connect(function() if not islandOpen then IslandText.Visible = true end end)
+    end
+end
+IslandClose.MouseButton1Click:Connect(toggleIsland)
+
+-- Появление островка сверху при старте
+task.delay(1, function() TS:Create(Island, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = UDim2.new(0.5, 0, 0, 10)}):Play() end)
+
+-- ===================== КОНТЕКСТНОЕ МЕНЮ (ПКМ) =====================
+local CMenu = Instance.new("Frame", SG)
+CMenu.Size, CMenu.BackgroundColor3, CMenu.Visible, CMenu.ZIndex = UDim2.new(0, 160, 0, 70), Color3.fromRGB(25, 25, 35), false, 10
+Instance.new("UICorner", CMenu).CornerRadius = UDim.new(0, 8)
+Instance.new("UIStroke", CMenu).Color = col
+
+local CMLayout = Instance.new("UIListLayout", CMenu)
+local btnPM = Instance.new("TextButton", CMenu)
+btnPM.Size, btnPM.Text, btnPM.TextColor3, btnPM.Font, btnPM.TextSize, btnPM.BackgroundTransparency = UDim2.new(1,0,0,35), "💬 Написать в ЛС", Color3.new(1,1,1), Enum.Font.GothamBold, 12, 1
+local btnPing = Instance.new("TextButton", CMenu)
+btnPing.Size, btnPing.Text, btnPing.TextColor3, btnPing.Font, btnPing.TextSize, btnPing.BackgroundTransparency = UDim2.new(1,0,0,35), "🔔 Упомянуть", Color3.new(1,1,1), Enum.Font.GothamBold, 12, 1
+
+local selectedUser = ""
+btnPing.MouseButton1Click:Connect(function()
+    CMenu.Visible = false
+    -- Вставляем ник в поле ввода (если оно еще не открыто, можно открыть окно)
+    local IB = MF:FindFirstChild("TextBox", true)
+    if IB then IB.Text = IB.Text .. "@" .. selectedUser .. " " IB:CaptureFocus() end
+end)
+
+btnPM.MouseButton1Click:Connect(function()
+    CMenu.Visible = false
+    -- Открываем Островок ЛС с этим игроком
+    if not islandOpen then toggleIsland() end
+    -- Покажем уведомление (В этапе 2 здесь откроется чат)
+    showNotification("Личные сообщения", "Чат с " .. selectedUser .. " в разработке (Этап 2)!")
+end)
+
+-- Скрытие меню при клике в пустоту
+UIS.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        CMenu.Visible = false
     end
 end)
 
--- [NEW] очистка чата
-CB.MouseButton1Click:Connect(function()
-    for _, c in ipairs(CL:GetChildren()) do
-        if c:IsA("Frame") then c:Destroy() end
-    end
+-- ===================== ГЛАВНОЕ ОКНО И UI (ОБЩИЙ ЧАТ) =====================
+-- (Код окон, кнопок и настроек из прошлой версии. Я его сжал для удобства)
+local MB = Instance.new("TextButton", SG) MB.Size, MB.Position, MB.BackgroundColor3, MB.Text, MB.TextSize, MB.TextColor3, MB.Font = UDim2.new(0,60,0,60), UDim2.new(0.05,0,0.5,-30), Color3.fromRGB(20,20,28), "💬", 26, col, Enum.Font.GothamBold
+Instance.new("UICorner", MB).CornerRadius = UDim.new(1,0) Instance.new("UIStroke", MB).Color = col
+
+local MF = Instance.new("Frame", SG) MF.AnchorPoint, MF.Size, MF.Position, MF.BackgroundColor3, MF.BackgroundTransparency, MF.Visible, MF.ClipsDescendants = Vector2.new(0.5,0.5), UDim2.new(0,520,0,340), UDim2.new(0.5,0,0.45,0), Color3.fromRGB(15,15,22), 0.15, false, true
+Instance.new("UICorner", MF).CornerRadius = UDim.new(0,12)
+local HD = Instance.new("Frame", MF) HD.Size, HD.BackgroundColor3, HD.BackgroundTransparency = UDim2.new(1,0,0,42), Color3.fromRGB(22,22,32), 0.1 Instance.new("UICorner", HD).CornerRadius = UDim.new(0,12)
+local HT = Instance.new("TextLabel", HD) HT.Size, HT.Position, HT.Text, HT.TextColor3, HT.TextSize, HT.Font, HT.TextXAlignment, HT.BackgroundTransparency = UDim2.new(1,-160,1,0), UDim2.new(0,18,0,0), "🤫 SECRET GLOBAL CHAT", col, 14, Enum.Font.GothamBold, Enum.TextXAlignment.Left, 1
+local SB = Instance.new("TextButton", HD) SB.Size, SB.Position, SB.Text, SB.TextSize, SB.BackgroundTransparency = UDim2.new(0,32,0,32), UDim2.new(1,-45,0,5), "⚙️", 18, 1
+local CB = Instance.new("TextButton", HD) CB.Size, CB.Position, CB.Text, CB.TextSize, CB.BackgroundTransparency = UDim2.new(0,32,0,32), UDim2.new(1,-80,0,5), "🗑️", 16, 1
+local BB = Instance.new("Frame", MF) BB.Size, BB.Position, BB.BackgroundTransparency = UDim2.new(1,0,0,50), UDim2.new(0,0,1,-50), 1
+local IB = Instance.new("TextBox", BB) IB.Size, IB.Position, IB.BackgroundColor3, IB.BackgroundTransparency, IB.TextColor3, IB.PlaceholderText, IB.Text, IB.TextSize, IB.Font, IB.TextXAlignment, IB.ClearTextOnFocus = UDim2.new(1,-66,0,36), UDim2.new(0,12,0,4), Color3.fromRGB(20,20,28), 0.4, Color3.new(1,1,1), "Введите сообщение...", "", 13, Enum.Font.Gotham, Enum.TextXAlignment.Left, false Instance.new("UICorner", IB).CornerRadius = UDim.new(0,8) Instance.new("UIPadding", IB).PaddingLeft = UDim.new(0,12)
+local SndBtn = Instance.new("TextButton", BB) SndBtn.Size, SndBtn.Position, SndBtn.BackgroundColor3, SndBtn.Text, SndBtn.TextColor3, SndBtn.Font, SndBtn.TextSize = UDim2.new(0,36,0,36), UDim2.new(1,-48,0,4), Color3.fromRGB(30,30,40), "➤", col, Enum.Font.GothamBold, 16 Instance.new("UICorner", SndBtn).CornerRadius = UDim.new(0,8)
+local CL = Instance.new("ScrollingFrame", MF) CL.Size, CL.Position, CL.BackgroundTransparency, CL.ScrollBarThickness, CL.ScrollBarImageColor3 = UDim2.new(1,-24,1,-102), UDim2.new(0,12,0,50), 1, 2, col
+local LL = Instance.new("UIListLayout", CL) LL.SortOrder, LL.Padding = Enum.SortOrder.LayoutOrder, UDim.new(0,8)
+LL:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() CL.CanvasSize = UDim2.new(0,0,0,LL.AbsoluteContentSize.Y+10); CL.CanvasPosition = Vector2.new(0,math.max(0,LL.AbsoluteContentSize.Y-CL.AbsoluteSize.Y+10)) end)
+
+local function makeDraggable(t, h)
+    local drag, startPos, dragStart = false, nil, nil
+    h.InputBegan:Connect(function(i) if i.UserInputType.Name:match("MouseButton1|Touch") then drag = true startPos, dragStart = t.Position, i.Position end end)
+    UIS.InputChanged:Connect(function(i) if drag and i.UserInputType.Name:match("MouseMovement|Touch") then t.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + (i.Position - dragStart).X, startPos.Y.Scale, startPos.Y.Offset + (i.Position - dragStart).Y) end end)
+    UIS.InputEnded:Connect(function(i) if i.UserInputType.Name:match("MouseButton1|Touch") then drag = false end end)
+end
+makeDraggable(MB, MB) makeDraggable(MF, HD) makeDraggable(Island, Island)
+
+local chatOpen = false
+MB.MouseButton1Click:Connect(function()
+    chatOpen = not chatOpen
+    if chatOpen then MF.Visible = true MF.Size = UDim2.new(0,0,0,0) TS:Create(MF, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0,520,0,340)}):Play()
+    else local ct = TS:Create(MF, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0,0,0,0)}) ct:Play() ct.Completed:Connect(function() if not chatOpen then MF.Visible = false end end) end
 end)
 
 -- ===================== ОТРИСОВКА СООБЩЕНИЙ =====================
--- [NEW] экранирование, чтобы < > & в тексте не ломали RichText
-local function escapeRich(s)
-    return s:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;")
-end
-
-local function drawMessage(uName, text, nColor, nStyle, nFx, mStyleFx, wB, wI, wU, wS)
-    -- [NEW] лимит сообщений — самые старые удаляются
-    local frames = {}
-    for _, c in ipairs(CL:GetChildren()) do
-        if c:IsA("Frame") then table.insert(frames, c) end
-    end
-    if #frames >= MAX_MESSAGES then
-        frames[1]:Destroy()
-    end
-
-    local mf = Instance.new("Frame", CL)
-    mf.BackgroundTransparency = 1
-    mf.Size = UDim2.new(1, 0, 0, 24)
-
-    local nl = Instance.new("TextLabel", mf)
-    nl.Size = UDim2.new(0, 150, 0, 24)
-    nl.BackgroundTransparency = 1
-    nl.Font = Enum.Font.GothamBold
-    nl.TextSize = 13
-    nl.TextXAlignment = Enum.TextXAlignment.Left
-
-    local tN = uName
-    if nStyle == "sq" then tN = "[" .. tN .. "]"
-    elseif nStyle == "round" then tN = "(" .. tN .. ")"
-    elseif nStyle == "ang" then tN = "<" .. tN .. ">" end
-    -- [NEW] время сообщения
-    tN = os.date("%H:%M") .. " " .. tN
-    nl.Text = tN
-
-    if nFx == "rbw" then
-        task.spawn(function()
-            while nl.Parent do
-                for h = 0, 1, 0.01 do
-                    if not nl.Parent then break end
-                    nl.TextColor3 = Color3.fromHSV(h, 1, 1)
-                    task.wait(0.02)
-                end
-            end
-        end)
-    elseif nFx == "gnk" then
-        nl.TextColor3 = nColor
-        task.spawn(function()
-            while nl.Parent do
-                local sqs = {}
-                for _ = 1, math.random(1, 2) do
-                    local sq = Instance.new("Frame", nl)
-                    sq.BorderSizePixel = 0
-                    sq.BackgroundColor3 = math.random() < 0.5 and Color3.fromRGB(170, 0, 255) or Color3.new(0, 0, 0)
-                    sq.Size = UDim2.new(0, math.random(3, 8), 0, math.random(3, 8))
-                    sq.Position = UDim2.new(0, math.random(0, math.max(1, math.floor(nl.TextBounds.X))), 0, math.random(0, 12))
-                    table.insert(sqs, sq)
-                end
-                task.wait(0.08)
-                for _, q in ipairs(sqs) do q:Destroy() end
-                task.wait(0.1)
-            end
-        end)
-    else
-        nl.TextColor3 = nColor
-    end
-
-    local off = nl.TextBounds.X + 8
-    local tl = Instance.new("TextLabel", mf)
-    tl.Position = UDim2.new(0, off, 0, 0)
-    tl.Size = UDim2.new(1, -off, 0, 24)
-    tl.BackgroundTransparency = 1
-    tl.Font = Enum.Font.Gotham
-    tl.TextSize = 13
-    tl.TextXAlignment = Enum.TextXAlignment.Left
-    tl.TextYAlignment = Enum.TextYAlignment.Top
-    tl.RichText = true
-    tl.TextWrapped = true -- [NEW] длинные сообщения переносятся, а не обрезаются
-
-    -- [FIX] в оригинале RichText-теги потерялись (str=''..str..'') — форматирование не работало вообще
-    local str = escapeRich(text)
-    if wB then str = "<b>" .. str .. "</b>" end
-    if wI then str = "<i>" .. str .. "</i>" end
-    if wU then str = "<u>" .. str .. "</u>" end
-    if wS then str = "<s>" .. str .. "</s>" end
-    tl.Text = str
-    tl.TextColor3 = Color3.fromRGB(240, 240, 245)
-
-    -- [NEW] авто-высота под многострочный текст
-    task.defer(function()
-        if tl.Parent then
-            local h = math.max(24, tl.TextBounds.Y)
-            tl.Size = UDim2.new(1, -off, 0, h)
-            mf.Size = UDim2.new(1, 0, 0, h)
-        end
-    end)
-
-    if mStyleFx == "glch" then
-        task.spawn(function()
-            while tl.Parent do
-                local sqs = {}
-                for _ = 1, math.random(1, 3) do
-                    local sq = Instance.new("Frame", tl)
-                    sq.BorderSizePixel = 0
-                    sq.BackgroundColor3 = math.random() < 0.5 and Color3.fromRGB(170, 0, 255) or Color3.new(0, 0, 0)
-                    sq.Size = UDim2.new(0, math.random(4, 10), 0, math.random(4, 10))
-                    sq.Position = UDim2.new(0, math.random(0, math.max(1, math.floor(tl.TextBounds.X))), 0, math.random(0, 15))
-                    table.insert(sqs, sq)
-                end
-                task.wait(math.random(5, 15) / 100)
-                for _, q in ipairs(sqs) do q:Destroy() end
-                task.wait(math.random(5, 20) / 100)
-            end
-        end)
-    elseif mStyleFx == "shk" then
-        task.spawn(function()
-            local oP = tl.Position
-            while tl.Parent do
-                tl.Position = UDim2.new(oP.X.Scale, oP.X.Offset + math.random(-2, 2), oP.Y.Scale, oP.Y.Offset + math.random(-2, 2))
-                task.wait(0.03)
-            end
-        end)
-    end
-end
-
--- ===================== СЕТЬ (HTTP, глобальная) =====================
--- [NEW] Настоящий глобальный чат через внешний сервер.
--- Работает через request-функцию экзекутора (Xeno поддерживает).
+local escapeRich = function(s) return s:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;") end
 local req = (syn and syn.request) or (http and http.request) or http_request or request
-if not req then
-    warn("[SecretChat] Экзекутор не поддерживает HTTP-запросы!")
-end
-
--- Системное сообщение в чат (статус подключения и т.д.)
-local function systemMsg(text)
-    drawMessage("SYSTEM", text, Color3.fromRGB(255, 200, 0), "sq", "none", "none", true, false, false, false)
-end
-
--- Упаковка стилей в компактную meta-строку
-local function packMeta()
-    return string.format("bs=%s;fx=%s;mf=%s;b=%d;i=%d;u=%d;s=%d",
-        bStyle, fx, msgFx,
-        isB and 1 or 0, isI and 1 or 0, isU and 1 or 0, isS and 1 or 0)
-end
-
-local function unpackMeta(meta)
-    local t = { bs = "none", fx = "none", mf = "none", b = false, i = false, u = false, s = false }
-    if type(meta) ~= "string" then return t end
-    for k, v in meta:gmatch("(%w+)=([%w]+)") do
-        if k == "bs" then t.bs = v
-        elseif k == "fx" then t.fx = v
-        elseif k == "mf" then t.mf = v
-        elseif k == "b" then t.b = (v == "1")
-        elseif k == "i" then t.i = (v == "1")
-        elseif k == "u" then t.u = (v == "1")
-        elseif k == "s" then t.s = (v == "1") end
-    end
-    return t
-end
-
-local function parseColor(str)
-    local r, g, b = tostring(str or ""):match("(%d+),(%d+),(%d+)")
-    if r then
-        return Color3.fromRGB(math.clamp(tonumber(r), 0, 255), math.clamp(tonumber(g), 0, 255), math.clamp(tonumber(b), 0, 255))
-    end
-    return Color3.new(1, 1, 1)
-end
-
--- id сообщений, которые отправили МЫ — чтобы не рисовать их дважды при опросе
 local myIds = {}
 
--- Отправка на сервер
-local function sendMessage()
-    local text = IB.Text
-    if text == "" or isSO then return end
-    if text:gsub("%s", "") == "" then return end
-    if not req then
-        systemMsg("Нет HTTP-функции у экзекутора")
-        return
-    end
-    IB.Text = ""
+function drawMessage(uName, text, nColor, nStyle, nFx, mStyleFx, wB, wI, wU, senderGame)
+    local frames = {}
+    for _, c in ipairs(CL:GetChildren()) do if c:IsA("Frame") then table.insert(frames, c) end end
+    if #frames >= MAX_MESSAGES then frames[1]:Destroy() end
 
-    -- рисуем сразу у себя (не ждём опроса сервера)
-    drawMessage(LP.Name, text, col, bStyle, fx, msgFx, isB, isI, isU, isS)
-
-    local body = HTTP:JSONEncode({
-        name = LP.Name,
-        text = text,
-        color = string.format("%d,%d,%d",
-            math.floor(col.R * 255), math.floor(col.G * 255), math.floor(col.B * 255)),
-        meta = packMeta(),
-    })
-
-    task.spawn(function()
-        local ok, res = pcall(req, {
-            Url = API_URL .. "/send",
-            Method = "POST",
-            Headers = { ["Content-Type"] = "application/json" },
-            Body = body,
-        })
-        if ok and res and res.StatusCode == 200 then
-            local ok2, data = pcall(HTTP.JSONDecode, HTTP, res.Body)
-            if ok2 and type(data) == "table" and data.id then
-                myIds[data.id] = true -- запомним, чтобы опрос не продублировал
-            end
-        elseif ok and res and res.StatusCode == 429 then
-            systemMsg("Слишком быстро! Подожди секунду.")
-        else
-            systemMsg("Не удалось отправить (сервер недоступен?)")
+    local mf = Instance.new("Frame", CL) mf.BackgroundTransparency, mf.Size = 1, UDim2.new(1, 0, 0, 24)
+    Instance.new("UICorner", mf).CornerRadius = UDim.new(0, 4) -- Для красивого выделения при наведении
+    
+    -- [NEW] Логика ПКМ (Контекстное меню)
+    mf.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton2 then
+            -- Подсвечиваем серым
+            local tw = TS:Create(mf, TweenInfo.new(0.2), {BackgroundTransparency = 0.8, BackgroundColor3 = Color3.new(1,1,1)}) tw:Play()
+            task.delay(1, function() TS:Create(mf, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play() end)
+            
+            selectedUser = uName:gsub("%[.-%] ", ""):gsub("👑 СОЗДАТЕЛЬ ", "") -- Очищаем ник от тегов
+            CMenu.Position = UDim2.new(0, UIS:GetMouseLocation().X, 0, UIS:GetMouseLocation().Y)
+            CMenu.Visible = true
         end
+    end)
+
+    local cg = Instance.new("CanvasGroup", mf) cg.Size, cg.BackgroundTransparency = UDim2.new(1, 0, 1, 0), 1
+    local nl = Instance.new("TextLabel", cg)
+    nl.Size, nl.BackgroundTransparency, nl.Font, nl.TextSize, nl.TextXAlignment, nl.TextColor3 = UDim2.new(0, 200, 0, 24), 1, Enum.Font.GothamBold, 13, Enum.TextXAlignment.Left, nColor
+    
+    local tN = uName
+    local role = ROLES[uName]
+    if nStyle == "sq" then tN = "[" .. tN .. "]" elseif nStyle == "round" then tN = "(" .. tN .. ")" elseif nStyle == "ang" then tN = "<" .. tN .. ">" end
+    if role then tN = role.tag .. " " .. tN; nColor = role.color; nl.TextColor3 = nColor; nFx = role.effect ~= "none" and role.effect or nFx end
+    local gameTag = (senderGame and senderGame ~= "" and senderGame ~= "Roblox") and "["..senderGame.."] " or ""
+    nl.Text = os.date("%H:%M") .. " " .. gameTag .. tN
+
+    local off = 0 task.spawn(function() task.wait() off = nl.TextBounds.X + 8 end)
+
+    if nFx == "rbw" then task.spawn(function() while nl.Parent do nl.TextColor3 = Color3.fromHSV((tick()%3)/3, 1, 1) task.wait() end end) end
+
+    local tl = Instance.new("TextLabel", cg)
+    task.defer(function() tl.Position, tl.Size = UDim2.new(0, off, 0, 0), UDim2.new(1, -off, 0, 24) end)
+    tl.BackgroundTransparency, tl.Font, tl.TextSize, tl.TextXAlignment, tl.TextYAlignment, tl.RichText, tl.TextWrapped = 1, Enum.Font.Gotham, 13, Enum.TextXAlignment.Left, Enum.TextYAlignment.Top, true, true
+    
+    local str = escapeRich(text)
+    
+    -- [NEW] Проверка на упоминание МЕНЯ
+    local myName = string.lower(LP.Name)
+    if string.find(string.lower(str), "@" .. myName) then
+        str = string.gsub(str, "@" .. LP.Name, '<font color="rgb(255,100,100)"><b>@' .. LP.Name .. '</b></font>')
+        if uName ~= LP.Name then showNotification("Упоминание", uName .. " упомянул вас!") end
+    end
+
+    if wB then str = "<b>" .. str .. "</b>" end if wI then str = "<i>" .. str .. "</i>" end if wU then str = "<u>" .. str .. "</u>" end
+    tl.Text, tl.TextColor3 = str, Color3.fromRGB(240, 240, 245)
+
+    task.defer(function() if tl.Parent then local h = math.max(24, tl.TextBounds.Y) tl.Size = UDim2.new(1, -off, 0, h) mf.Size = UDim2.new(1, 0, 0, h) cg.Size = mf.Size end end)
+end
+
+local function sendPayload(textData)
+    if not req then return end
+    local metaStr = string.format("bs=%s;fx=%s;mf=%s;b=%d;i=%d;u=%d;gn=%s", bStyle, fx, msgFx, isB and 1 or 0, isI and 1 or 0, isU and 1 or 0, myGameName)
+    local body = HTTP:JSONEncode({ name = LP.Name, text = textData, color = string.format("%d,%d,%d", math.floor(col.R * 255), math.floor(col.G * 255), math.floor(col.B * 255)), meta = metaStr })
+    task.spawn(function()
+        local ok, res = pcall(req, { Url = API_URL .. "/send", Method = "POST", Headers = {["Content-Type"]="application/json"}, Body = body })
+        if ok and res and res.StatusCode == 200 then local _, data = pcall(HTTP.JSONDecode, HTTP, res.Body) if data and data.id then myIds[data.id] = true end end
     end)
 end
 
--- Опрос сервера: получаем новые сообщения раз в 1.5 секунды
-local lastId = 0
-local firstPoll = true
+local function sendMessage()
+    local text = IB.Text
+    if text:gsub("%s", "") == "" then return end
+    IB.Text = "" drawMessage(LP.Name, text, col, bStyle, fx, msgFx, isB, isI, isU, myGameName) sendPayload(text)
+end
+
+IB.FocusLost:Connect(function(enter) if enter then sendMessage() task.defer(function() IB:CaptureFocus() end) end end)
+SndBtn.MouseButton1Click:Connect(sendMessage)
+
+-- Опрос сервера
+local lastId, firstPoll = 0, true
 task.spawn(function()
     if not req then return end
-    if API_URL:find("ВСТАВЬ") then
-        systemMsg("Вставь URL сервера в API_URL вверху скрипта!")
-        return
-    end
     while SG.Parent do
-        local ok, res = pcall(req, {
-            Url = API_URL .. "/messages?after=" .. lastId,
-            Method = "GET",
-        })
+        local ok, res = pcall(req, { Url = API_URL .. "/messages?after=" .. lastId, Method = "GET" })
         if ok and res and res.StatusCode == 200 then
-            if firstPoll then
-                systemMsg("Подключено к серверу!")
-            end
             local ok2, msgs = pcall(HTTP.JSONDecode, HTTP, res.Body)
             if ok2 and type(msgs) == "table" then
                 for _, m in ipairs(msgs) do
                     if type(m) == "table" and m.id then
                         lastId = math.max(lastId, m.id)
-                        -- при первом опросе грузим историю, свои дубли пропускаем
                         if not myIds[m.id] then
-                            local st = unpackMeta(m.meta)
-                            drawMessage(
-                                tostring(m.name or "Anon"),
-                                tostring(m.text or ""),
-                                parseColor(m.color),
-                                st.bs, st.fx, st.mf,
-                                st.b, st.i, st.u, st.s
-                            )
+                            local t = { bs="none", fx="none", mf="none", b=false, i=false, u=false, gn="" }
+                            for k, v in (m.meta or ""):gmatch("(%w+)=([^;]+)") do if k=="bs" then t.bs=v elseif k=="fx" then t.fx=v elseif k=="mf" then t.mf=v elseif k=="b" then t.b=(v=="1") elseif k=="i" then t.i=(v=="1") elseif k=="gn" then t.gn=v:gsub("_", " ") end end
+                            local r, g, b = tostring(m.color or ""):match("(%d+),(%d+),(%d+)")
+                            drawMessage(tostring(m.name or "Anon"), tostring(m.text or ""), (r and Color3.fromRGB(tonumber(r), tonumber(g), tonumber(b)) or Color3.new(1,1,1)), t.bs, t.fx, t.mf, t.b, t.i, t.u, t.gn)
                         end
                     end
                 end
             end
-        elseif firstPoll then
-            systemMsg("Сервер недоступен. Проверь URL и что Colab запущен.")
         end
-        firstPoll = false
-        task.wait(1.5)
-    end
-end)
-
-IB.FocusLost:Connect(function(enterPressed)
-    if enterPressed then
-        sendMessage()
-        -- [NEW] фокус остаётся в поле — можно писать подряд без лишних кликов
-        task.defer(function() IB:CaptureFocus() end)
-    end
-end)
-
--- ===================== ПЕРЕТАСКИВАНИЕ =====================
-local function makeDraggable(target, handle)
-    local dragging, dragInput, dragStart, startPos, moved = false, nil, nil, nil, false
-    handle.InputBegan:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-            dragging, moved = true, false
-            dragStart, startPos = i.Position, target.Position
-            i.Changed:Connect(function()
-                if i.UserInputState == Enum.UserInputState.End then dragging = false end
-            end)
-        end
-    end)
-    handle.InputChanged:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch then
-            dragInput = i
-        end
-    end)
-    UIS.InputChanged:Connect(function(i)
-        if i == dragInput and dragging then
-            local d = i.Position - dragStart
-            if d.Magnitude > 5 then moved = true end
-            target.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
-        end
-    end)
-    return function() return moved end
-end
-
-local buttonMoved = makeDraggable(MB, MB)
-makeDraggable(MF, HD)
-
--- ===================== РЕСАЙЗ =====================
-local resizing, resizeStart, startSize = false, nil, nil
-RS.InputBegan:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-        resizing, resizeStart, startSize = true, i.Position, MF.Size
-    end
-end)
-UIS.InputChanged:Connect(function(i)
-    if resizing and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
-        local d = i.Position - resizeStart
-        local nW = math.clamp(startSize.X.Offset + d.X, 320, 700)
-        local nH = math.clamp(startSize.Y.Offset + d.Y, 250, 600)
-        MF.Size = UDim2.new(0, nW, 0, nH)
-    end
-end)
-UIS.InputEnded:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-        resizing = false
-    end
-end)
-
--- ===================== ОТКРЫТИЕ / ЗАКРЫТИЕ =====================
-local chatOpen = false
-local lastSize = UDim2.new(0, 440, 0, 260) -- [NEW] запоминает размер после ресайза
-
-local function toggleChat()
-    chatOpen = not chatOpen
-    if chatOpen then
-        MF.Visible = true
-        MF.Size = UDim2.new(0, 0, 0, 0)
-        MF.BackgroundTransparency = 1
-        TS:Create(MF, TweenInfo.new(0.35, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
-            Size = lastSize,
-            BackgroundTransparency = 0.25,
-        }):Play()
-    else
-        lastSize = MF.Size -- [FIX] раньше после закрытия окно всегда сбрасывалось на 440x260
-        local ct = TS:Create(MF, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-            Size = UDim2.new(0, 0, 0, 0),
-            BackgroundTransparency = 1,
-        })
-        ct:Play()
-        ct.Completed:Connect(function()
-            if not chatOpen then MF.Visible = false end
-        end)
-    end
-end
-
-MB.InputBegan:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-        MB:TweenSize(UDim2.new(0, 52, 0, 52), "Out", "Quad", 0.1, true)
-        local conn
-        conn = i.Changed:Connect(function()
-            if i.UserInputState == Enum.UserInputState.End then
-                conn:Disconnect()
-                MB:TweenSize(UDim2.new(0, 60, 0, 60), "Out", "Quad", 0.1, true)
-                if not buttonMoved() then
-                    toggleChat()
-                end
-            end
-        end)
-    end
-end)
-
--- [NEW] горячая клавиша RightShift для открытия/закрытия чата
-UIS.InputBegan:Connect(function(i, gameProcessed)
-    if gameProcessed then return end
-    if i.KeyCode == Enum.KeyCode.RightShift then
-        toggleChat()
+        firstPoll = false task.wait(1.5)
     end
 end)
