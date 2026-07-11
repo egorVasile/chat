@@ -1,15 +1,25 @@
 --[[
-    SECRET GLOBAL CHAT v8 (DYNAMIC ISLAND & MENTIONS)
-    + Правый клик по сообщениям, + Упоминания, + Уведомления, + Динамический Островок ЛС.
+    SECRET GLOBAL CHAT v8.5 (ULTIMATE & UNCUT)
+    Все функции на месте: Настройки, Эффекты, Гифки, Фоны +
+    Новые функции: Динамический островок ЛС, Уведомления, ПКМ меню, Упоминания.
 ]]
 
+-- ========== НАСТРОЙКИ СЕРВЕРА И РОЛЕЙ ==========
 local API_URL = "https://твой-url.trycloudflare.com"
 
 local ROLES = {
-    ["ТВОЙ_НИК"] = { tag = "👑 СОЗДАТЕЛЬ", color = Color3.fromRGB(255, 215, 0), effect = "rbw" },
+    -- Замени на свой реальный ник
+    ["ТВОЙ_НИК_ТУТ"] = { tag = "👑 СОЗДАТЕЛЬ", color = Color3.fromRGB(255, 215, 0), effect = "rbw" },
 }
 
-local GIF_CATALOG = { {name = "Кот", id = "13482325372"}, {name = "Пепе", id = "7248107773"} }
+local GIF_CATALOG = {
+    {name = "Кот",   id = "13482325372"},
+    {name = "Пепе",  id = "7248107773"},
+    {name = "Клоун", id = "10515159424"},
+    {name = "УНО",   id = "4736343516"},
+    {name = "Танцы", id = "14713431145"},
+}
+-- ===============================================
 
 local TS = game:GetService("TweenService")
 local UIS = game:GetService("UserInputService")
@@ -19,70 +29,126 @@ local MS = game:GetService("MarketplaceService")
 
 local LP = PL.LocalPlayer
 local PlayerGui = LP:WaitForChild("PlayerGui")
-if PlayerGui:FindFirstChild("NeonFolderChat") then PlayerGui.NeonFolderChat:Destroy() end
+
+local old = PlayerGui:FindFirstChild("NeonFolderChat")
+if old then old:Destroy() end
 
 local SG = Instance.new("ScreenGui")
 SG.Name = "NeonFolderChat"
 SG.ResetOnSpawn = false
 SG.Parent = PlayerGui
 
+-- Глобальные переменные состояния
 local col = Color3.fromRGB(0, 255, 204)
-local fx, msgFx, bStyle = "none", "none", "none"
+local fx = "none"
+local msgFx = "none"
+local bStyle = "none"
 local isB, isI, isU = false, false, false
-local MAX_MESSAGES = 80
+local MAX_MESSAGES = 100
+
 local myGameName = "Roblox"
+task.spawn(function()
+    pcall(function() myGameName = MS:GetProductInfo(game.PlaceId).Name end)
+    myGameName = myGameName:gsub("[^%w%sА-Яа-я]", ""):sub(1, 12):gsub(" ", "_")
+    if myGameName == "" then myGameName = "Roblox" end
+end)
 
-task.spawn(function() pcall(function() myGameName = MS:GetProductInfo(game.PlaceId).Name:gsub("[^%w%sА-Яа-я]", ""):sub(1, 12):gsub(" ", "_") end) end)
-
--- ===================== УВЕДОМЛЕНИЯ (СНИЗУ СПРАВА) =====================
+-- ===================== СИСТЕМА УВЕДОМЛЕНИЙ =====================
 local NotifFrame = Instance.new("Frame", SG)
-NotifFrame.Size, NotifFrame.Position, NotifFrame.BackgroundTransparency = UDim2.new(0, 250, 1, 0), UDim2.new(1, -260, 0, 0), 1
+NotifFrame.Size = UDim2.new(0, 250, 1, 0)
+NotifFrame.Position = UDim2.new(1, -260, 0, 0)
+NotifFrame.BackgroundTransparency = 1
+
 local NotifLayout = Instance.new("UIListLayout", NotifFrame)
-NotifLayout.SortOrder, NotifLayout.Padding, NotifLayout.VerticalAlignment = Enum.SortOrder.LayoutOrder, UDim.new(0, 10), Enum.VerticalAlignment.Bottom
+NotifLayout.SortOrder = Enum.SortOrder.LayoutOrder
+NotifLayout.Padding = UDim.new(0, 10)
+NotifLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
 
 local function showNotification(title, desc)
-    -- Звук
     local snd = Instance.new("Sound", game.Workspace)
-    snd.SoundId = "rbxassetid://6042053626" snd.Volume = 2 snd:Play() game.Debris:AddItem(snd, 2)
+    snd.SoundId = "rbxassetid://6042053626"
+    snd.Volume = 2
+    snd:Play()
+    game.Debris:AddItem(snd, 2)
 
     local nf = Instance.new("Frame", NotifFrame)
-    nf.Size, nf.BackgroundColor3, nf.BackgroundTransparency = UDim2.new(1, 0, 0, 60), Color3.fromRGB(20, 20, 28), 1
+    nf.Size = UDim2.new(1, 0, 0, 60)
+    nf.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+    nf.BackgroundTransparency = 1
     Instance.new("UICorner", nf).CornerRadius = UDim.new(0, 8)
-    local st = Instance.new("UIStroke", nf) st.Color = col st.Thickness = 1.5 st.Transparency = 1
+    
+    local st = Instance.new("UIStroke", nf)
+    st.Color = col
+    st.Thickness = 1.5
+    st.Transparency = 1
     
     local tl = Instance.new("TextLabel", nf)
-    tl.Size, tl.Position, tl.Text, tl.TextColor3, tl.Font, tl.TextSize, tl.BackgroundTransparency, tl.TextXAlignment = UDim2.new(1, -20, 0, 20), UDim2.new(0, 10, 0, 10), title, col, Enum.Font.GothamBold, 14, 1, Enum.TextXAlignment.Left
+    tl.Size = UDim2.new(1, -20, 0, 20)
+    tl.Position = UDim2.new(0, 10, 0, 10)
+    tl.Text = title
+    tl.TextColor3 = col
+    tl.Font = Enum.Font.GothamBold
+    tl.TextSize = 14
+    tl.BackgroundTransparency = 1
+    tl.TextXAlignment = Enum.TextXAlignment.Left
+    tl.TextTransparency = 1
     
     local dl = Instance.new("TextLabel", nf)
-    dl.Size, dl.Position, dl.Text, dl.TextColor3, dl.Font, dl.TextSize, dl.BackgroundTransparency, dl.TextXAlignment = UDim2.new(1, -20, 0, 20), UDim2.new(0, 10, 0, 30), desc, Color3.new(1,1,1), Enum.Font.Gotham, 12, 1, Enum.TextXAlignment.Left
+    dl.Size = UDim2.new(1, -20, 0, 20)
+    dl.Position = UDim2.new(0, 10, 0, 30)
+    dl.Text = desc
+    dl.TextColor3 = Color3.new(1, 1, 1)
+    dl.Font = Enum.Font.Gotham
+    dl.TextSize = 12
+    dl.BackgroundTransparency = 1
+    dl.TextXAlignment = Enum.TextXAlignment.Left
+    dl.TextTransparency = 1
 
     TS:Create(nf, TweenInfo.new(0.4), {BackgroundTransparency = 0.1}):Play()
     TS:Create(st, TweenInfo.new(0.4), {Transparency = 0}):Play()
-    tl.TextTransparency = 0 dl.TextTransparency = 0
+    TS:Create(tl, TweenInfo.new(0.4), {TextTransparency = 0}):Play()
+    TS:Create(dl, TweenInfo.new(0.4), {TextTransparency = 0}):Play()
 
     task.delay(4, function()
         TS:Create(nf, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
         TS:Create(st, TweenInfo.new(0.5), {Transparency = 1}):Play()
         TS:Create(tl, TweenInfo.new(0.5), {TextTransparency = 1}):Play()
         local tw = TS:Create(dl, TweenInfo.new(0.5), {TextTransparency = 1})
-        tw:Play() tw.Completed:Connect(function() nf:Destroy() end)
+        tw:Play()
+        tw.Completed:Connect(function() nf:Destroy() end)
     end)
 end
 
--- ===================== DYNAMIC ISLAND (ЛС) =====================
+-- ===================== ДИНАМИЧЕСКИЙ ОСТРОВОК ЛС =====================
 local Island = Instance.new("Frame", SG)
-Island.AnchorPoint, Island.Size, Island.Position, Island.BackgroundColor3, Island.ClipsDescendants = Vector2.new(0.5, 0), UDim2.new(0, 150, 0, 30), UDim2.new(0.5, 0, 0, -40), Color3.fromRGB(15, 15, 22), true
+Island.AnchorPoint = Vector2.new(0.5, 0)
+Island.Size = UDim2.new(0, 150, 0, 30)
+Island.Position = UDim2.new(0.5, 0, 0, -40)
+Island.BackgroundColor3 = Color3.fromRGB(15, 15, 22)
+Island.ClipsDescendants = true
 Instance.new("UICorner", Island).CornerRadius = UDim.new(1, 0)
-local IslandStroke = Instance.new("UIStroke", Island) IslandStroke.Color = col IslandStroke.Thickness = 1.5
+local IslandStroke = Instance.new("UIStroke", Island)
+IslandStroke.Color = col
+IslandStroke.Thickness = 1.5
 
 local IslandText = Instance.new("TextLabel", Island)
-IslandText.Size, IslandText.Text, IslandText.TextColor3, IslandText.Font, IslandText.TextSize, IslandText.BackgroundTransparency = UDim2.new(1,0,1,0), "Личные сообщения", col, Enum.Font.GothamBold, 12, 1
+IslandText.Size = UDim2.new(1, 0, 1, 0)
+IslandText.Text = "Личные сообщения"
+IslandText.TextColor3 = col
+IslandText.Font = Enum.Font.GothamBold
+IslandText.TextSize = 12
+IslandText.BackgroundTransparency = 1
 
 local IslandClose = Instance.new("TextButton", Island)
-IslandClose.Size, IslandClose.Position, IslandClose.Text, IslandClose.TextColor3, IslandClose.BackgroundTransparency, IslandClose.Visible = UDim2.new(0, 30, 0, 30), UDim2.new(1, -35, 0, 5), "✖", Color3.fromRGB(255, 100, 100), 1, false
-IslandClose.Font, IslandClose.TextSize = Enum.Font.GothamBold, 16
+IslandClose.Size = UDim2.new(0, 30, 0, 30)
+IslandClose.Position = UDim2.new(1, -35, 0, 5)
+IslandClose.Text = "✖"
+IslandClose.TextColor3 = Color3.fromRGB(255, 100, 100)
+IslandClose.Font = Enum.Font.GothamBold
+IslandClose.TextSize = 16
+IslandClose.BackgroundTransparency = 1
+IslandClose.Visible = false
 
--- Анимация развертывания Островка
 local islandOpen = false
 local function toggleIsland()
     islandOpen = not islandOpen
@@ -91,7 +157,6 @@ local function toggleIsland()
         IslandClose.Visible = true
         TS:Create(Island, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 600, 0, 350), Position = UDim2.new(0.5, 0, 0.2, 0)}):Play()
         TS:Create(Island:FindFirstChildOfClass("UICorner"), TweenInfo.new(0.3), {CornerRadius = UDim.new(0, 12)}):Play()
-        -- Здесь во 2 этапе появится контент ЛС (список чатов и диалог)
     else
         IslandClose.Visible = false
         local tw = TS:Create(Island, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Size = UDim2.new(0, 150, 0, 30), Position = UDim2.new(0.5, 0, 0, 10)})
@@ -102,75 +167,408 @@ local function toggleIsland()
 end
 IslandClose.MouseButton1Click:Connect(toggleIsland)
 
--- Появление островка сверху при старте
-task.delay(1, function() TS:Create(Island, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = UDim2.new(0.5, 0, 0, 10)}):Play() end)
+task.delay(1, function()
+    TS:Create(Island, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = UDim2.new(0.5, 0, 0, 10)}):Play()
+end)
+
+-- ===================== ГЛАВНОЕ ОКНО ЧАТА =====================
+local MB = Instance.new("TextButton", SG)
+MB.Size = UDim2.new(0, 60, 0, 60)
+MB.Position = UDim2.new(0.05, 0, 0.5, -30)
+MB.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+MB.Text = "💬"
+MB.TextSize = 26
+MB.TextColor3 = col
+MB.Font = Enum.Font.GothamBold
+Instance.new("UICorner", MB).CornerRadius = UDim.new(1, 0)
+local MBStroke = Instance.new("UIStroke", MB)
+MBStroke.Color = col
+MBStroke.Thickness = 2.5
+
+local MF = Instance.new("Frame", SG)
+MF.AnchorPoint = Vector2.new(0.5, 0.5)
+MF.Size = UDim2.new(0, 520, 0, 340)
+MF.Position = UDim2.new(0.5, 0, 0.45, 0)
+MF.BackgroundColor3 = Color3.fromRGB(15, 15, 22)
+MF.BackgroundTransparency = 0.15
+MF.ClipsDescendants = true
+MF.Visible = false
+Instance.new("UICorner", MF).CornerRadius = UDim.new(0, 12)
+
+local ChatBG = Instance.new("ImageLabel", MF)
+ChatBG.Size = UDim2.new(1, 0, 1, 0)
+ChatBG.BackgroundTransparency = 1
+ChatBG.ImageTransparency = 0.85
+ChatBG.ScaleType = Enum.ScaleType.Crop
+ChatBG.ZIndex = 0
+Instance.new("UICorner", ChatBG).CornerRadius = UDim.new(0, 12)
+
+local HD = Instance.new("Frame", MF)
+HD.Size = UDim2.new(1, 0, 0, 42)
+HD.BackgroundColor3 = Color3.fromRGB(22, 22, 32)
+HD.BackgroundTransparency = 0.1
+Instance.new("UICorner", HD).CornerRadius = UDim.new(0, 12)
+
+local HT = Instance.new("TextLabel", HD)
+HT.Size = UDim2.new(1, -160, 1, 0)
+HT.Position = UDim2.new(0, 18, 0, 0)
+HT.Text = "🤫 SECRET GLOBAL CHAT"
+HT.TextColor3 = col
+HT.TextSize = 14
+HT.Font = Enum.Font.GothamBold
+HT.TextXAlignment = Enum.TextXAlignment.Left
+HT.BackgroundTransparency = 1
+
+local SB = Instance.new("TextButton", HD)
+SB.Size = UDim2.new(0, 32, 0, 32)
+SB.Position = UDim2.new(1, -45, 0, 5)
+SB.Text = "⚙️"
+SB.TextSize = 18
+SB.BackgroundTransparency = 1
+
+local CB = Instance.new("TextButton", HD)
+CB.Size = UDim2.new(0, 32, 0, 32)
+CB.Position = UDim2.new(1, -80, 0, 5)
+CB.Text = "🗑️"
+CB.TextSize = 16
+CB.BackgroundTransparency = 1
+
+local GB = Instance.new("TextButton", HD)
+GB.Size = UDim2.new(0, 32, 0, 32)
+GB.Position = UDim2.new(1, -115, 0, 5)
+GB.Text = "🖼️"
+GB.TextSize = 16
+GB.BackgroundTransparency = 1
+
+local BB = Instance.new("Frame", MF)
+BB.Size = UDim2.new(1, 0, 0, 50)
+BB.Position = UDim2.new(0, 0, 1, -50)
+BB.BackgroundTransparency = 1
+
+local IB = Instance.new("TextBox", BB)
+IB.Size = UDim2.new(1, -66, 0, 36)
+IB.Position = UDim2.new(0, 12, 0, 4)
+IB.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+IB.BackgroundTransparency = 0.4
+IB.TextColor3 = Color3.new(1, 1, 1)
+IB.PlaceholderText = "Введите сообщение... (@ник для упоминания)"
+IB.Text = ""
+IB.TextSize = 13
+IB.Font = Enum.Font.Gotham
+IB.TextXAlignment = Enum.TextXAlignment.Left
+IB.ClearTextOnFocus = false
+Instance.new("UICorner", IB).CornerRadius = UDim.new(0, 8)
+Instance.new("UIPadding", IB).PaddingLeft = UDim.new(0, 12)
+
+local SndBtn = Instance.new("TextButton", BB)
+SndBtn.Size = UDim2.new(0, 36, 0, 36)
+SndBtn.Position = UDim2.new(1, -48, 0, 4)
+SndBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+SndBtn.Text = "➤"
+SndBtn.TextColor3 = col
+SndBtn.Font = Enum.Font.GothamBold
+SndBtn.TextSize = 16
+Instance.new("UICorner", SndBtn).CornerRadius = UDim.new(0, 8)
+
+-- ===================== СПИСКИ (ЧАТ И ГИФКИ) =====================
+local CL = Instance.new("ScrollingFrame", MF)
+CL.Size = UDim2.new(1, -24, 1, -102)
+CL.Position = UDim2.new(0, 12, 0, 50)
+CL.BackgroundTransparency = 1
+CL.ScrollBarThickness = 2
+CL.ScrollBarImageColor3 = col
+local LL = Instance.new("UIListLayout", CL)
+LL.SortOrder = Enum.SortOrder.LayoutOrder
+LL.Padding = UDim.new(0, 8)
+LL:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    CL.CanvasSize = UDim2.new(0, 0, 0, LL.AbsoluteContentSize.Y + 10)
+    CL.CanvasPosition = Vector2.new(0, math.max(0, LL.AbsoluteContentSize.Y - CL.AbsoluteSize.Y + 10))
+end)
+
+local GF = Instance.new("ScrollingFrame", MF)
+GF.Size = UDim2.new(1, -24, 1, -102)
+GF.Position = UDim2.new(-1, 0, 0, 50)
+GF.BackgroundTransparency = 1
+GF.Visible = false
+GF.ScrollBarThickness = 3
+GF.ScrollBarImageColor3 = col
+local GL = Instance.new("UIGridLayout", GF)
+GL.CellSize = UDim2.new(0, 80, 0, 80)
+GL.CellPadding = UDim2.new(0, 12, 0, 12)
+GL.SortOrder = Enum.SortOrder.LayoutOrder
+GL:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    GF.CanvasSize = UDim2.new(0, 0, 0, GL.AbsoluteContentSize.Y + 10)
+end)
+
+-- ===================== ПАНЕЛЬ НАСТРОЕК =====================
+local SC = Instance.new("ScrollingFrame", MF)
+SC.Size = UDim2.new(1, -10, 1, -102)
+SC.Position = UDim2.new(1, 0, 0, 50)
+SC.BackgroundTransparency = 1
+SC.Visible = false
+SC.ScrollBarThickness = 4
+SC.ScrollBarImageColor3 = col
+SC.CanvasSize = UDim2.new(0, 0, 0, 600)
+
+local function makeTitle(text, y)
+    local l = Instance.new("TextLabel", SC)
+    l.Text = "  " .. text
+    l.Size = UDim2.new(1, -20, 0, 20)
+    l.Position = UDim2.new(0, 10, 0, y)
+    l.BackgroundTransparency = 1
+    l.TextColor3 = Color3.fromRGB(150, 150, 160)
+    l.Font = Enum.Font.GothamBold
+    l.TextSize = 11
+    l.TextXAlignment = Enum.TextXAlignment.Left
+end
+
+makeTitle("ЦВЕТ И ПАЛИТРА", 5)
+local CW = Instance.new("ImageLabel", SC)
+CW.Size = UDim2.new(0, 90, 0, 90)
+CW.Position = UDim2.new(0, 15, 0, 30)
+CW.BackgroundTransparency = 1
+CW.Image = "rbxassetid://15303439408"
+local dot = Instance.new("Frame", CW)
+dot.Size = UDim2.new(0, 6, 0, 6)
+dot.BackgroundColor3 = Color3.new(1, 1, 1)
+dot.AnchorPoint = Vector2.new(0.5, 0.5)
+dot.Position = UDim2.new(0.5, 0, 0.5, 0)
+Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
+local prv = Instance.new("Frame", SC)
+prv.Size = UDim2.new(0, 90, 0, 12)
+prv.Position = UDim2.new(0, 15, 0, 125)
+prv.BackgroundColor3 = col
+Instance.new("UICorner", prv).CornerRadius = UDim.new(0, 4)
+
+local function updateColorWheel(i)
+    local cx, cy = CW.AbsolutePosition.X + CW.AbsoluteSize.X / 2, CW.AbsolutePosition.Y + CW.AbsoluteSize.Y / 2
+    local dx, dy = i.Position.X - cx, i.Position.Y - cy
+    local dist = math.sqrt(dx * dx + dy * dy)
+    local maxR = 45
+    if dist > maxR then dx = (dx/dist)*maxR; dy = (dy/dist)*maxR; dist = maxR end
+    dot.Position = UDim2.new(0, dx + maxR, 0, dy + maxR)
+    local hue = math.atan2(dy, dx) / (math.pi * 2)
+    if hue < 0 then hue = hue + 1 end
+    col = Color3.fromHSV(hue, math.clamp(dist / maxR, 0, 1), 1)
+    
+    prv.BackgroundColor3 = col
+    MBStroke.Color = col
+    MB.TextColor3 = col
+    HT.TextColor3 = col
+    SndBtn.TextColor3 = col
+    CL.ScrollBarImageColor3 = col
+    SC.ScrollBarImageColor3 = col
+    GF.ScrollBarImageColor3 = col
+    IslandStroke.Color = col
+    IslandText.TextColor3 = col
+end
+
+local wheelDown = false
+CW.InputBegan:Connect(function(i) if i.UserInputType.Name:match("MouseButton1|Touch") then wheelDown = true updateColorWheel(i) end end)
+UIS.InputChanged:Connect(function(i) if wheelDown and i.UserInputType.Name:match("MouseMovement|Touch") then updateColorWheel(i) end end)
+UIS.InputEnded:Connect(function(i) if i.UserInputType.Name:match("MouseButton1|Touch") then wheelDown = false end end)
+
+local presetsFrame = Instance.new("Frame", SC)
+presetsFrame.Size = UDim2.new(0, 310, 0, 100)
+presetsFrame.Position = UDim2.new(0, 120, 0, 30)
+presetsFrame.BackgroundTransparency = 1
+local pg = Instance.new("UIGridLayout", presetsFrame)
+pg.CellSize = UDim2.new(0, 75, 0, 24)
+pg.CellPadding = UDim2.new(0, 8, 0, 8)
+pg.SortOrder = Enum.SortOrder.LayoutOrder
+
+local colorPresets = {
+    {"Мята", Color3.fromRGB(0,255,204)}, {"Розовый", Color3.fromRGB(255,0,130)}, {"Синий", Color3.fromRGB(0,170,255)},
+    {"Лайм", Color3.fromRGB(150,255,0)}, {"Золото", Color3.fromRGB(255,180,0)}, {"Алый", Color3.fromRGB(255,50,50)},
+    {"Аметист", Color3.fromRGB(150,0,255)}, {"Океан", Color3.fromRGB(0,100,255)}, {"Белый", Color3.fromRGB(255,255,255)},
+}
+
+for _, p in ipairs(colorPresets) do
+    local b = Instance.new("TextButton", presetsFrame)
+    b.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+    b.Text = p[1]
+    b.TextColor3 = Color3.new(1, 1, 1)
+    b.Font = Enum.Font.GothamBold
+    b.TextSize = 10
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
+    local st = Instance.new("UIStroke", b)
+    st.Color = p[2]
+    st.Thickness = 1
+    
+    b.MouseButton1Click:Connect(function()
+        col = p[2]
+        prv.BackgroundColor3 = col
+        MBStroke.Color = col
+        MB.TextColor3 = col
+        HT.TextColor3 = col
+        SndBtn.TextColor3 = col
+        CL.ScrollBarImageColor3 = col
+        SC.ScrollBarImageColor3 = col
+        GF.ScrollBarImageColor3 = col
+        IslandStroke.Color = col
+        IslandText.TextColor3 = col
+    end)
+end
+
+local function sBtn(p, t, c)
+    local b = Instance.new("TextButton", SC)
+    b.Size = UDim2.new(0, 100, 0, 26)
+    b.Position = p
+    b.BackgroundColor3 = c
+    b.Text = t
+    b.TextColor3 = Color3.new(1, 1, 1)
+    b.Font = Enum.Font.GothamBold
+    b.TextSize = 11
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
+    local st = Instance.new("UIStroke", b)
+    st.Color = Color3.fromRGB(50, 50, 60)
+    st.Thickness = 1
+    return b, st
+end
+
+makeTitle("ОБРАМЛЕНИЕ НИКА", 150)
+local f1 = sBtn(UDim2.new(0,15,0,175), "( Круглые )", Color3.fromRGB(30,30,40))
+local f2 = sBtn(UDim2.new(0,125,0,175), "[ Квадрат ]", Color3.fromRGB(30,30,40))
+local f3 = sBtn(UDim2.new(0,235,0,175), "< Угловые >", Color3.fromRGB(30,30,40))
+local sBtns = { {f1,"round"}, {f2,"sq"}, {f3,"ang"} }
+for _, e in ipairs(sBtns) do
+    e[1].MouseButton1Click:Connect(function()
+        bStyle = (bStyle == e[2]) and "none" or e[2]
+        for _, b in ipairs(sBtns) do b[1].BackgroundColor3 = (bStyle == b[2]) and col or Color3.fromRGB(30,30,40) end
+    end)
+end
+
+makeTitle("АНИМАЦИИ НИКА", 215)
+local e1 = sBtn(UDim2.new(0,15,0,240), "Радуга", Color3.fromRGB(35,35,45))
+local e2 = sBtn(UDim2.new(0,125,0,240), "Глич", Color3.fromRGB(35,35,45))
+local e3 = sBtn(UDim2.new(0,235,0,240), "Пульс", Color3.fromRGB(35,35,45))
+local nEx = { {e1,"rbw"}, {e2,"gnk"}, {e3,"pls"} }
+for _, e in ipairs(nEx) do
+    e[1].MouseButton1Click:Connect(function()
+        fx = (fx == e[2]) and "none" or e[2]
+        for _, b in ipairs(nEx) do b[1].BackgroundColor3 = (fx == b[2]) and col or Color3.fromRGB(35,35,45) end
+    end)
+end
+
+makeTitle("ФОРМАТИРОВАНИЕ СООБЩЕНИЯ", 280)
+local t1,s1=sBtn(UDim2.new(0,15,0,305),"Жирный",Color3.fromRGB(25,25,30))
+t1.MouseButton1Click:Connect(function() isB=not isB s1.Color=isB and col or Color3.fromRGB(50,50,60) end)
+local t2,s2=sBtn(UDim2.new(0,125,0,305),"Курсив",Color3.fromRGB(25,25,30))
+t2.MouseButton1Click:Connect(function() isI=not isI s2.Color=isI and col or Color3.fromRGB(50,50,60) end)
+local t3,s3=sBtn(UDim2.new(0,235,0,305),"Подчерк.",Color3.fromRGB(25,25,30))
+t3.MouseButton1Click:Connect(function() isU=not isU s3.Color=isU and col or Color3.fromRGB(50,50,60) end)
+
+makeTitle("ЭФФЕКТЫ СООБЩЕНИЯ", 345)
+local m1 = sBtn(UDim2.new(0,15,0,370), "Тряска", Color3.fromRGB(35,35,45))
+local m2 = sBtn(UDim2.new(0,125,0,370), "Глич", Color3.fromRGB(35,35,45))
+local m3 = sBtn(UDim2.new(0,235,0,370), "Неон", Color3.fromRGB(35,35,45))
+local m4 = sBtn(UDim2.new(0,345,0,370), "Радуга", Color3.fromRGB(35,35,45))
+local mEx = { {m1,"shk"}, {m2,"glch"}, {m3,"neon"}, {m4,"mrbw"} }
+for _, e in ipairs(mEx) do
+    e[1].MouseButton1Click:Connect(function()
+        msgFx = (msgFx == e[2]) and "none" or e[2]
+        for _, b in ipairs(mEx) do b[1].BackgroundColor3 = (msgFx == b[2]) and col or Color3.fromRGB(35,35,45) end
+    end)
+end
+
+makeTitle("ВНЕШНИЙ ВИД ЧАТА (ФОНОВЫЙ ID)", 415)
+local bgInput = Instance.new("TextBox", SC)
+bgInput.Size = UDim2.new(0, 310, 0, 26)
+bgInput.Position = UDim2.new(0, 15, 0, 440)
+bgInput.BackgroundColor3 = Color3.fromRGB(20,20,28)
+bgInput.TextColor3 = Color3.new(1, 1, 1)
+bgInput.PlaceholderText = "Вставь ID картинки и нажми Enter..."
+bgInput.Text = ""
+bgInput.Font = Enum.Font.Gotham
+bgInput.TextSize = 12
+Instance.new("UICorner", bgInput).CornerRadius = UDim.new(0, 6)
+Instance.new("UIStroke", bgInput).Color = Color3.fromRGB(50,50,60)
+bgInput.FocusLost:Connect(function()
+    local id = bgInput.Text:match("%d+")
+    if id then ChatBG.Image = "rbxassetid://" .. id else ChatBG.Image = "" end
+end)
 
 -- ===================== КОНТЕКСТНОЕ МЕНЮ (ПКМ) =====================
 local CMenu = Instance.new("Frame", SG)
-CMenu.Size, CMenu.BackgroundColor3, CMenu.Visible, CMenu.ZIndex = UDim2.new(0, 160, 0, 70), Color3.fromRGB(25, 25, 35), false, 10
+CMenu.Size = UDim2.new(0, 160, 0, 70)
+CMenu.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+CMenu.Visible = false
+CMenu.ZIndex = 10
 Instance.new("UICorner", CMenu).CornerRadius = UDim.new(0, 8)
 Instance.new("UIStroke", CMenu).Color = col
 
 local CMLayout = Instance.new("UIListLayout", CMenu)
 local btnPM = Instance.new("TextButton", CMenu)
-btnPM.Size, btnPM.Text, btnPM.TextColor3, btnPM.Font, btnPM.TextSize, btnPM.BackgroundTransparency = UDim2.new(1,0,0,35), "💬 Написать в ЛС", Color3.new(1,1,1), Enum.Font.GothamBold, 12, 1
+btnPM.Size = UDim2.new(1, 0, 0, 35)
+btnPM.Text = "💬 Написать в ЛС"
+btnPM.TextColor3 = Color3.new(1, 1, 1)
+btnPM.Font = Enum.Font.GothamBold
+btnPM.TextSize = 12
+btnPM.BackgroundTransparency = 1
+
 local btnPing = Instance.new("TextButton", CMenu)
-btnPing.Size, btnPing.Text, btnPing.TextColor3, btnPing.Font, btnPing.TextSize, btnPing.BackgroundTransparency = UDim2.new(1,0,0,35), "🔔 Упомянуть", Color3.new(1,1,1), Enum.Font.GothamBold, 12, 1
+btnPing.Size = UDim2.new(1, 0, 0, 35)
+btnPing.Text = "🔔 Упомянуть"
+btnPing.TextColor3 = Color3.new(1, 1, 1)
+btnPing.Font = Enum.Font.GothamBold
+btnPing.TextSize = 12
+btnPing.BackgroundTransparency = 1
 
 local selectedUser = ""
 btnPing.MouseButton1Click:Connect(function()
     CMenu.Visible = false
-    -- Вставляем ник в поле ввода (если оно еще не открыто, можно открыть окно)
-    local IB = MF:FindFirstChild("TextBox", true)
-    if IB then IB.Text = IB.Text .. "@" .. selectedUser .. " " IB:CaptureFocus() end
+    IB.Text = IB.Text .. "@" .. selectedUser .. " "
+    IB:CaptureFocus()
 end)
 
 btnPM.MouseButton1Click:Connect(function()
     CMenu.Visible = false
-    -- Открываем Островок ЛС с этим игроком
     if not islandOpen then toggleIsland() end
-    -- Покажем уведомление (В этапе 2 здесь откроется чат)
     showNotification("Личные сообщения", "Чат с " .. selectedUser .. " в разработке (Этап 2)!")
 end)
 
--- Скрытие меню при клике в пустоту
 UIS.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         CMenu.Visible = false
     end
 end)
 
--- ===================== ГЛАВНОЕ ОКНО И UI (ОБЩИЙ ЧАТ) =====================
--- (Код окон, кнопок и настроек из прошлой версии. Я его сжал для удобства)
-local MB = Instance.new("TextButton", SG) MB.Size, MB.Position, MB.BackgroundColor3, MB.Text, MB.TextSize, MB.TextColor3, MB.Font = UDim2.new(0,60,0,60), UDim2.new(0.05,0,0.5,-30), Color3.fromRGB(20,20,28), "💬", 26, col, Enum.Font.GothamBold
-Instance.new("UICorner", MB).CornerRadius = UDim.new(1,0) Instance.new("UIStroke", MB).Color = col
+-- ===================== ЛОГИКА ВКЛАДОК =====================
+local currentTab = "chat"
+local tweenInfoBounce = TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+local tweenInfoFast = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
-local MF = Instance.new("Frame", SG) MF.AnchorPoint, MF.Size, MF.Position, MF.BackgroundColor3, MF.BackgroundTransparency, MF.Visible, MF.ClipsDescendants = Vector2.new(0.5,0.5), UDim2.new(0,520,0,340), UDim2.new(0.5,0,0.45,0), Color3.fromRGB(15,15,22), 0.15, false, true
-Instance.new("UICorner", MF).CornerRadius = UDim.new(0,12)
-local HD = Instance.new("Frame", MF) HD.Size, HD.BackgroundColor3, HD.BackgroundTransparency = UDim2.new(1,0,0,42), Color3.fromRGB(22,22,32), 0.1 Instance.new("UICorner", HD).CornerRadius = UDim.new(0,12)
-local HT = Instance.new("TextLabel", HD) HT.Size, HT.Position, HT.Text, HT.TextColor3, HT.TextSize, HT.Font, HT.TextXAlignment, HT.BackgroundTransparency = UDim2.new(1,-160,1,0), UDim2.new(0,18,0,0), "🤫 SECRET GLOBAL CHAT", col, 14, Enum.Font.GothamBold, Enum.TextXAlignment.Left, 1
-local SB = Instance.new("TextButton", HD) SB.Size, SB.Position, SB.Text, SB.TextSize, SB.BackgroundTransparency = UDim2.new(0,32,0,32), UDim2.new(1,-45,0,5), "⚙️", 18, 1
-local CB = Instance.new("TextButton", HD) CB.Size, CB.Position, CB.Text, CB.TextSize, CB.BackgroundTransparency = UDim2.new(0,32,0,32), UDim2.new(1,-80,0,5), "🗑️", 16, 1
-local BB = Instance.new("Frame", MF) BB.Size, BB.Position, BB.BackgroundTransparency = UDim2.new(1,0,0,50), UDim2.new(0,0,1,-50), 1
-local IB = Instance.new("TextBox", BB) IB.Size, IB.Position, IB.BackgroundColor3, IB.BackgroundTransparency, IB.TextColor3, IB.PlaceholderText, IB.Text, IB.TextSize, IB.Font, IB.TextXAlignment, IB.ClearTextOnFocus = UDim2.new(1,-66,0,36), UDim2.new(0,12,0,4), Color3.fromRGB(20,20,28), 0.4, Color3.new(1,1,1), "Введите сообщение...", "", 13, Enum.Font.Gotham, Enum.TextXAlignment.Left, false Instance.new("UICorner", IB).CornerRadius = UDim.new(0,8) Instance.new("UIPadding", IB).PaddingLeft = UDim.new(0,12)
-local SndBtn = Instance.new("TextButton", BB) SndBtn.Size, SndBtn.Position, SndBtn.BackgroundColor3, SndBtn.Text, SndBtn.TextColor3, SndBtn.Font, SndBtn.TextSize = UDim2.new(0,36,0,36), UDim2.new(1,-48,0,4), Color3.fromRGB(30,30,40), "➤", col, Enum.Font.GothamBold, 16 Instance.new("UICorner", SndBtn).CornerRadius = UDim.new(0,8)
-local CL = Instance.new("ScrollingFrame", MF) CL.Size, CL.Position, CL.BackgroundTransparency, CL.ScrollBarThickness, CL.ScrollBarImageColor3 = UDim2.new(1,-24,1,-102), UDim2.new(0,12,0,50), 1, 2, col
-local LL = Instance.new("UIListLayout", CL) LL.SortOrder, LL.Padding = Enum.SortOrder.LayoutOrder, UDim.new(0,8)
-LL:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() CL.CanvasSize = UDim2.new(0,0,0,LL.AbsoluteContentSize.Y+10); CL.CanvasPosition = Vector2.new(0,math.max(0,LL.AbsoluteContentSize.Y-CL.AbsoluteSize.Y+10)) end)
+local function switchTab(tab)
+    if currentTab == tab then tab = "chat" end
+    currentTab = tab
+    
+    HT.Text = tab == "settings" and "⚙️ НАСТРОЙКИ" or (tab == "gifs" and "🖼️ ВЫБОР СТИКЕРА" or "🤫 SECRET GLOBAL CHAT")
+    TS:Create(SB, tweenInfoFast, {Rotation = tab == "settings" and 90 or 0}):Play()
+    TS:Create(GB, tweenInfoFast, {Size = tab == "gifs" and UDim2.new(0,38,0,38) or UDim2.new(0,32,0,32)}):Play()
 
-local function makeDraggable(t, h)
-    local drag, startPos, dragStart = false, nil, nil
-    h.InputBegan:Connect(function(i) if i.UserInputType.Name:match("MouseButton1|Touch") then drag = true startPos, dragStart = t.Position, i.Position end end)
-    UIS.InputChanged:Connect(function(i) if drag and i.UserInputType.Name:match("MouseMovement|Touch") then t.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + (i.Position - dragStart).X, startPos.Y.Scale, startPos.Y.Offset + (i.Position - dragStart).Y) end end)
-    UIS.InputEnded:Connect(function(i) if i.UserInputType.Name:match("MouseButton1|Touch") then drag = false end end)
+    if tab == "chat" then
+        TS:Create(CL, tweenInfoBounce, {Position = UDim2.new(0, 12, 0, 50)}):Play()
+        TS:Create(SC, tweenInfoFast, {Position = UDim2.new(1, 0, 0, 50)}):Play()
+        TS:Create(GF, tweenInfoFast, {Position = UDim2.new(-1, 0, 0, 50)}):Play()
+    elseif tab == "settings" then
+        SC.Visible = true
+        TS:Create(CL, tweenInfoFast, {Position = UDim2.new(-1, 0, 0, 50)}):Play()
+        TS:Create(SC, tweenInfoBounce, {Position = UDim2.new(0, 0, 0, 50)}):Play()
+        TS:Create(GF, tweenInfoFast, {Position = UDim2.new(-1, 0, 0, 50)}):Play()
+    elseif tab == "gifs" then
+        GF.Visible = true
+        TS:Create(CL, tweenInfoFast, {Position = UDim2.new(1, 0, 0, 50)}):Play()
+        TS:Create(SC, tweenInfoFast, {Position = UDim2.new(1, 0, 0, 50)}):Play()
+        TS:Create(GF, tweenInfoBounce, {Position = UDim2.new(0, 12, 0, 50)}):Play()
+    end
 end
-makeDraggable(MB, MB) makeDraggable(MF, HD) makeDraggable(Island, Island)
-
-local chatOpen = false
-MB.MouseButton1Click:Connect(function()
-    chatOpen = not chatOpen
-    if chatOpen then MF.Visible = true MF.Size = UDim2.new(0,0,0,0) TS:Create(MF, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0,520,0,340)}):Play()
-    else local ct = TS:Create(MF, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0,0,0,0)}) ct:Play() ct.Completed:Connect(function() if not chatOpen then MF.Visible = false end end) end
+SB.MouseButton1Click:Connect(function() switchTab("settings") end)
+GB.MouseButton1Click:Connect(function() switchTab("gifs") end)
+CB.MouseButton1Click:Connect(function() 
+    TS:Create(CB, tweenInfoFast, {Rotation = 360}):Play()
+    task.wait(0.2)
+    CB.Rotation = 0
+    for _, c in ipairs(CL:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end 
 end)
 
 -- ===================== ОТРИСОВКА СООБЩЕНИЙ =====================
@@ -183,56 +581,99 @@ function drawMessage(uName, text, nColor, nStyle, nFx, mStyleFx, wB, wI, wU, sen
     for _, c in ipairs(CL:GetChildren()) do if c:IsA("Frame") then table.insert(frames, c) end end
     if #frames >= MAX_MESSAGES then frames[1]:Destroy() end
 
-    local mf = Instance.new("Frame", CL) mf.BackgroundTransparency, mf.Size = 1, UDim2.new(1, 0, 0, 24)
-    Instance.new("UICorner", mf).CornerRadius = UDim.new(0, 4) -- Для красивого выделения при наведении
+    local mf = Instance.new("Frame", CL)
+    mf.BackgroundTransparency = 1
+    mf.Size = UDim2.new(1, 0, 0, 24)
+    Instance.new("UICorner", mf).CornerRadius = UDim.new(0, 4)
     
-    -- [NEW] Логика ПКМ (Контекстное меню)
+    -- Обработка ПКМ для Контекстного Меню
     mf.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton2 then
-            -- Подсвечиваем серым
-            local tw = TS:Create(mf, TweenInfo.new(0.2), {BackgroundTransparency = 0.8, BackgroundColor3 = Color3.new(1,1,1)}) tw:Play()
+            local tw = TS:Create(mf, TweenInfo.new(0.2), {BackgroundTransparency = 0.8, BackgroundColor3 = Color3.new(1,1,1)})
+            tw:Play()
             task.delay(1, function() TS:Create(mf, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play() end)
             
-            selectedUser = uName:gsub("%[.-%] ", ""):gsub("👑 СОЗДАТЕЛЬ ", "") -- Очищаем ник от тегов
+            selectedUser = uName:gsub("%[.-%] ", ""):gsub("👑 СОЗДАТЕЛЬ ", "")
             CMenu.Position = UDim2.new(0, UIS:GetMouseLocation().X, 0, UIS:GetMouseLocation().Y)
             CMenu.Visible = true
         end
     end)
 
-    local cg = Instance.new("CanvasGroup", mf) cg.Size, cg.BackgroundTransparency = UDim2.new(1, 0, 1, 0), 1
+    mf.Position = UDim2.new(0, -50, 0, 0)
+    local cg = Instance.new("CanvasGroup", mf)
+    cg.Size = UDim2.new(1, 0, 1, 0)
+    cg.BackgroundTransparency = 1
+    cg.GroupTransparency = 1
+    
+    TS:Create(mf, tweenInfoBounce, {Position = UDim2.new(0, 0, 0, 0)}):Play()
+    TS:Create(cg, tweenInfoFast, {GroupTransparency = 0}):Play()
+
     local nl = Instance.new("TextLabel", cg)
-    nl.Size, nl.BackgroundTransparency, nl.Font, nl.TextSize, nl.TextXAlignment, nl.TextColor3 = UDim2.new(0, 200, 0, 24), 1, Enum.Font.GothamBold, 13, Enum.TextXAlignment.Left, nColor
+    nl.Size = UDim2.new(0, 200, 0, 24)
+    nl.BackgroundTransparency = 1
+    nl.Font = Enum.Font.GothamBold
+    nl.TextSize = 13
+    nl.TextXAlignment = Enum.TextXAlignment.Left
+    nl.TextColor3 = nColor
     
     local tN = uName
     local role = ROLES[uName]
     if nStyle == "sq" then tN = "[" .. tN .. "]" elseif nStyle == "round" then tN = "(" .. tN .. ")" elseif nStyle == "ang" then tN = "<" .. tN .. ">" end
-    if role then tN = role.tag .. " " .. tN; nColor = role.color; nl.TextColor3 = nColor; nFx = role.effect ~= "none" and role.effect or nFx end
+    if role then tN = role.tag .. " " .. tN nColor = role.color nl.TextColor3 = nColor nFx = role.effect ~= "none" and role.effect or nFx end
+    
     local gameTag = (senderGame and senderGame ~= "" and senderGame ~= "Roblox") and "["..senderGame.."] " or ""
     nl.Text = os.date("%H:%M") .. " " .. gameTag .. tN
 
-    local off = 0 task.spawn(function() task.wait() off = nl.TextBounds.X + 8 end)
+    local off = 0
+    task.spawn(function() task.wait() off = nl.TextBounds.X + 8 end)
 
-    if nFx == "rbw" then task.spawn(function() while nl.Parent do nl.TextColor3 = Color3.fromHSV((tick()%3)/3, 1, 1) task.wait() end end) end
+    if nFx == "rbw" then task.spawn(function() while nl.Parent do nl.TextColor3 = Color3.fromHSV((tick()%3)/3, 1, 1) task.wait() end end)
+    elseif nFx == "gnk" then task.spawn(function() while nl.Parent do if math.random(1,10)>8 then nl.Position=UDim2.new(0,math.random(-2,2),0,math.random(-2,2)) nl.TextColor3=Color3.new(1,0,0) task.wait(0.05) nl.TextColor3=Color3.new(0,1,1) task.wait(0.05) nl.TextColor3=nColor nl.Position=UDim2.new(0,0,0,0) end task.wait(0.1) end end)
+    elseif nFx == "pls" then task.spawn(function() while nl.Parent do nl.TextTransparency = 0.3 + 0.4 * math.sin(tick() * 3) task.wait() end end) end
 
-    local tl = Instance.new("TextLabel", cg)
-    task.defer(function() tl.Position, tl.Size = UDim2.new(0, off, 0, 0), UDim2.new(1, -off, 0, 24) end)
-    tl.BackgroundTransparency, tl.Font, tl.TextSize, tl.TextXAlignment, tl.TextYAlignment, tl.RichText, tl.TextWrapped = 1, Enum.Font.Gotham, 13, Enum.TextXAlignment.Left, Enum.TextYAlignment.Top, true, true
-    
-    local str = escapeRich(text)
-    
-    -- [NEW] Проверка на упоминание МЕНЯ
-    local myName = string.lower(LP.Name)
-    if string.find(string.lower(str), "@" .. myName) then
-        str = string.gsub(str, "@" .. LP.Name, '<font color="rgb(255,100,100)"><b>@' .. LP.Name .. '</b></font>')
-        if uName ~= LP.Name then showNotification("Упоминание", uName .. " упомянул вас!") end
+    local gifId = string.match(text, "^%[gif=(%d+)%]$")
+    if gifId then
+        local img = Instance.new("ImageLabel", cg)
+        task.defer(function() img.Position = UDim2.new(0, off, 0, 0) end)
+        img.Size = UDim2.new(0, 80, 0, 80)
+        img.BackgroundTransparency = 1
+        img.Image = "rbxassetid://" .. gifId
+        img.ScaleType = Enum.ScaleType.Fit
+        mf.Size = UDim2.new(1, 0, 0, 85)
+    else
+        local tl = Instance.new("TextLabel", cg)
+        task.defer(function() tl.Position, tl.Size = UDim2.new(0, off, 0, 0), UDim2.new(1, -off, 0, 24) end)
+        tl.BackgroundTransparency = 1
+        tl.Font = Enum.Font.Gotham
+        tl.TextSize = 13
+        tl.TextXAlignment = Enum.TextXAlignment.Left
+        tl.TextYAlignment = Enum.TextYAlignment.Top
+        tl.RichText = true
+        tl.TextWrapped = true
+        
+        local str = escapeRich(text)
+        
+        -- Логика упоминаний @Имя
+        local myName = string.lower(LP.Name)
+        if string.find(string.lower(str), "@" .. myName) then
+            str = string.gsub(str, "@" .. LP.Name, '<font color="rgb(255,100,100)"><b>@' .. LP.Name .. '</b></font>')
+            if uName ~= LP.Name then showNotification("Новое упоминание", uName .. " упомянул вас в чате!") end
+        end
+
+        if wB then str = "<b>" .. str .. "</b>" end if wI then str = "<i>" .. str .. "</i>" end if wU then str = "<u>" .. str .. "</u>" end
+        tl.Text = str
+        tl.TextColor3 = Color3.fromRGB(240, 240, 245)
+
+        task.defer(function() if tl.Parent then local h = math.max(24, tl.TextBounds.Y) tl.Size = UDim2.new(1, -off, 0, h) mf.Size = UDim2.new(1, 0, 0, h) cg.Size = mf.Size end end)
+
+        if mStyleFx == "shk" then task.spawn(function() while tl.Parent do tl.Position=UDim2.new(0,off+math.random(-1,1),0,math.random(-1,1)) task.wait(0.03) end end)
+        elseif mStyleFx == "glch" then task.spawn(function() while tl.Parent do if math.random(1,20)>18 then tl.TextTransparency=0.5 tl.Position=UDim2.new(0,off+math.random(-3,3),0,math.random(-2,2)) task.wait(0.05) tl.TextTransparency=0 tl.Position=UDim2.new(0,off,0,0) end task.wait(0.1) end end)
+        elseif mStyleFx == "neon" then local stk = Instance.new("UIStroke", tl) stk.Color = nColor stk.Thickness = 1.5 task.spawn(function() while tl.Parent do stk.Transparency = 0.2 + 0.6 * math.abs(math.sin(tick() * 2)) task.wait() end end)
+        elseif mStyleFx == "mrbw" then task.spawn(function() while tl.Parent do tl.TextColor3 = Color3.fromHSV((tick()%3)/3, 0.6, 1) task.wait() end end) end
     end
-
-    if wB then str = "<b>" .. str .. "</b>" end if wI then str = "<i>" .. str .. "</i>" end if wU then str = "<u>" .. str .. "</u>" end
-    tl.Text, tl.TextColor3 = str, Color3.fromRGB(240, 240, 245)
-
-    task.defer(function() if tl.Parent then local h = math.max(24, tl.TextBounds.Y) tl.Size = UDim2.new(1, -off, 0, h) mf.Size = UDim2.new(1, 0, 0, h) cg.Size = mf.Size end end)
 end
 
+-- ===================== СЕТЬ И ВЗАИМОДЕЙСТВИЕ =====================
 local function sendPayload(textData)
     if not req then return end
     local metaStr = string.format("bs=%s;fx=%s;mf=%s;b=%d;i=%d;u=%d;gn=%s", bStyle, fx, msgFx, isB and 1 or 0, isI and 1 or 0, isU and 1 or 0, myGameName)
@@ -243,22 +684,38 @@ local function sendPayload(textData)
     end)
 end
 
+for _, gifData in ipairs(GIF_CATALOG) do
+    local btn = Instance.new("ImageButton", GF)
+    btn.BackgroundTransparency = 1
+    btn.Image = "rbxassetid://" .. gifData.id
+    btn.ScaleType = Enum.ScaleType.Fit
+    btn.MouseButton1Click:Connect(function()
+        local gCmd = "[gif=" .. gifData.id .. "]"
+        drawMessage(LP.Name, gCmd, col, bStyle, fx, msgFx, false, false, false, myGameName)
+        sendPayload(gCmd) switchTab("chat")
+    end)
+end
+
 local function sendMessage()
     local text = IB.Text
     if text:gsub("%s", "") == "" then return end
-    IB.Text = "" drawMessage(LP.Name, text, col, bStyle, fx, msgFx, isB, isI, isU, myGameName) sendPayload(text)
+    IB.Text = ""
+    drawMessage(LP.Name, text, col, bStyle, fx, msgFx, isB, isI, isU, myGameName)
+    sendPayload(text)
 end
 
 IB.FocusLost:Connect(function(enter) if enter then sendMessage() task.defer(function() IB:CaptureFocus() end) end end)
-SndBtn.MouseButton1Click:Connect(sendMessage)
+SndBtn.MouseButton1Click:Connect(function() sendMessage() TS:Create(SndBtn, tweenInfoFast, {Size = UDim2.new(0, 32, 0, 32)}):Play() task.wait(0.1) TS:Create(SndBtn, tweenInfoFast, {Size = UDim2.new(0, 36, 0, 36)}):Play() end)
+SndBtn.MouseEnter:Connect(function() TS:Create(SndBtn, TweenInfo.new(0.2), {BackgroundColor3 = col, TextColor3 = Color3.new(0,0,0)}):Play() end)
+SndBtn.MouseLeave:Connect(function() TS:Create(SndBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(30,30,40), TextColor3 = col}):Play() end)
 
--- Опрос сервера
 local lastId, firstPoll = 0, true
 task.spawn(function()
     if not req then return end
     while SG.Parent do
         local ok, res = pcall(req, { Url = API_URL .. "/messages?after=" .. lastId, Method = "GET" })
         if ok and res and res.StatusCode == 200 then
+            if firstPoll then drawMessage("SYSTEM", "Успешно подключено к серверу!", Color3.fromRGB(0, 255, 100), "sq", "none", "none", true, false, false, "") end
             local ok2, msgs = pcall(HTTP.JSONDecode, HTTP, res.Body)
             if ok2 and type(msgs) == "table" then
                 for _, m in ipairs(msgs) do
@@ -266,14 +723,29 @@ task.spawn(function()
                         lastId = math.max(lastId, m.id)
                         if not myIds[m.id] then
                             local t = { bs="none", fx="none", mf="none", b=false, i=false, u=false, gn="" }
-                            for k, v in (m.meta or ""):gmatch("(%w+)=([^;]+)") do if k=="bs" then t.bs=v elseif k=="fx" then t.fx=v elseif k=="mf" then t.mf=v elseif k=="b" then t.b=(v=="1") elseif k=="i" then t.i=(v=="1") elseif k=="gn" then t.gn=v:gsub("_", " ") end end
+                            for k, v in (m.meta or ""):gmatch("(%w+)=([^;]+)") do if k=="bs" then t.bs=v elseif k=="fx" then t.fx=v elseif k=="mf" then t.mf=v elseif k=="b" then t.b=(v=="1") elseif k=="i" then t.i=(v=="1") elseif k=="u" then t.u=(v=="1") elseif k=="gn" then t.gn=v:gsub("_", " ") end end
                             local r, g, b = tostring(m.color or ""):match("(%d+),(%d+),(%d+)")
                             drawMessage(tostring(m.name or "Anon"), tostring(m.text or ""), (r and Color3.fromRGB(tonumber(r), tonumber(g), tonumber(b)) or Color3.new(1,1,1)), t.bs, t.fx, t.mf, t.b, t.i, t.u, t.gn)
                         end
                     end
                 end
             end
-        end
+        elseif firstPoll then drawMessage("SYSTEM", "Нет связи с сервером.", Color3.fromRGB(255, 50, 50), "sq", "none", "none", true, false, false, "") end
         firstPoll = false task.wait(1.5)
     end
+end)
+
+local function makeDraggable(t, h)
+    local drag, startPos, dragStart = false, nil, nil
+    h.InputBegan:Connect(function(i) if i.UserInputType.Name:match("MouseButton1|Touch") then drag = true startPos, dragStart = t.Position, i.Position end end)
+    UIS.InputChanged:Connect(function(i) if drag and i.UserInputType.Name:match("MouseMovement|Touch") then t.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + (i.Position - dragStart).X, startPos.Y.Scale, startPos.Y.Offset + (i.Position - dragStart).Y) end end)
+    UIS.InputEnded:Connect(function(i) if i.UserInputType.Name:match("MouseButton1|Touch") then drag = false end end)
+end
+makeDraggable(MB, MB) makeDraggable(MF, HD) makeDraggable(Island, Island)
+
+local chatOpen = false
+MB.MouseButton1Click:Connect(function()
+    chatOpen = not chatOpen
+    if chatOpen then MF.Visible = true MF.Size = UDim2.new(0, 0, 0, 0) TS:Create(MF, tweenInfoBounce, {Size = UDim2.new(0, 520, 0, 340)}):Play()
+    else local ct = TS:Create(MF, tweenInfoFast, {Size = UDim2.new(0, 0, 0, 0)}) ct:Play() ct.Completed:Connect(function() if not chatOpen then MF.Visible = false end end) end
 end)
