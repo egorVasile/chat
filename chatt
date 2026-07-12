@@ -1,8 +1,9 @@
---// ===================== NEON ULTIMATE CHAT v13 (REVAMPED) =====================
--- Помести этот скрипт в StarterPlayerScripts
--- ВАЖНО: Обнови API_URL на тот, который выдаст Python-сервер!
+-- ============================================
+-- NeonChat Client — Refactored (local registers fix)
+-- Variables grouped into tables: Services, UI, State, Tween
+-- ============================================
 
-local API_URL = "https://stadium-duck-intro-liz.trycloudflare.com"
+local API_URL = "https://highs-printed-flash-configure.trycloudflare.com"
 local ADMIN_TOKEN = "nobiyet"
 
 API_URL = API_URL:gsub("%s+", ""):gsub("/$", "")
@@ -29,17 +30,18 @@ local MAX_MESSAGES = 100
 local MAX_PM_MESSAGES = 120
 
 --// ===================== SERVICES =====================
-local TS = game:GetService("TweenService")
-local UIS = game:GetService("UserInputService")
-local PL = game:GetService("Players")
-local HTTP = game:GetService("HttpService")
-local MS = game:GetService("MarketplaceService")
-local Debris = game:GetService("Debris")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local InsertService = game:GetService("InsertService")
-local VoiceChatService = game:GetService("VoiceChatService")
+local Services = {}
+Services.TS = game:GetService("TweenService")
+Services.UIS = game:GetService("UserInputService")
+Services.PL = game:GetService("Players")
+Services.HTTP = game:GetService("HttpService")
+Services.MS = game:GetService("MarketplaceService")
+Services.Debris = game:GetService("Debris")
+Services.ReplicatedStorage = game:GetService("ReplicatedStorage")
+Services.InsertService = game:GetService("InsertService")
+Services.VoiceChatService = game:GetService("VoiceChatService")
 
-local LP = PL.LocalPlayer
+local LP = Services.PL.LocalPlayer
 local PlayerGui = LP:WaitForChild("PlayerGui")
 local req = (syn and syn.request) or (http and http.request) or http_request or request
 
@@ -65,7 +67,11 @@ local function parseColor(str)
 	return Color3.new(1,1,1)
 end
 local function rgbString(c) return string.format("%d,%d,%d", math.floor(c.R*255), math.floor(c.G*255), math.floor(c.B*255)) end
-local function safeName(n) n = tostring(n or "Anon"):gsub("[^%w_]", "") if n=="" then n="Anon" end return n:sub(1,24) end
+local function safeName(n) 
+	n = tostring(n or "Anon"):gsub("[^%w_]", "") 
+	if n=="" then n="Anon" end 
+	return n:sub(1,24) 
+end
 local function makePMText(tgt, pay) return "[PM:" .. safeName(tgt) .. "]" .. tostring(pay or "") end
 local function parsePMText(t) return tostring(t or ""):match("^%[PM:([%w_]+)%](.*)$") end
 local function isGifText(t) return tostring(t or ""):match("^%[gif=(%d+)%]$") end
@@ -75,52 +81,62 @@ local function clamp(n, a, b) return math.min(math.max(n, a), b) end
 local old = PlayerGui:FindFirstChild("NeonFolderChat")
 if old then old:Destroy() end
 
-SG = Instance.new("ScreenGui")
-SG.Name = "NeonFolderChat"
-SG.ResetOnSpawn = false
-SG.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-SG.IgnoreGuiInset = true
-SG.Parent = PlayerGui
+--// ===================== UI TABLE =====================
+local UI = {}
 
---// ===================== STATE =====================
-local col = Color3.fromRGB(0, 255, 204)
-local fx, msgFx, bStyle = "none", "none", "none"
-local isB, isI, isU, isS = false, false, false, false
-local currentTab, selectedUser, chatOpen, islandOpen = "chat", "", false, false
-local myIds, pendingLocal, dmHistory, dmUnread, activeDM = {}, {}, {}, {}, nil
-local blockedUsers = {}
-local draftText = ""
-local replyTo = nil
-local myStatus = "online"
-local typingSent = 0
-local lastSearch = ""
-local pinnedMessages = {}
-local windowTransparency = 0.08
-local bgTransparency = 0.86
-local contentTransparency = 0
+UI.SG = Instance.new("ScreenGui")
+UI.SG.Name = "NeonFolderChat"
+UI.SG.ResetOnSpawn = false
+UI.SG.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+UI.SG.IgnoreGuiInset = true
+UI.SG.Parent = PlayerGui
 
-local activeChannel = "global"
-local channelsList = { "global", "local" }
-local channelHistory = { global = {}, ["local"] = {} }
-local channelButtons = {}
-local messageFrames = {} -- id -> frame
+--// ===================== STATE TABLE =====================
+local State = {}
+State.col = Color3.fromRGB(0, 255, 204)
+State.fx = "none"
+State.msgFx = "none"
+State.bStyle = "none"
+State.isB, State.isI, State.isU, State.isS = false, false, false, false
+State.currentTab, State.selectedUser, State.chatOpen, State.islandOpen = "chat", "", false, false
+State.myIds, State.pendingLocal, State.dmHistory, State.dmUnread, State.activeDM = {}, {}, {}, {}, nil
+State.blockedUsers = {}
+State.draftText = ""
+State.replyTo = nil
+State.myStatus = "online"
+State.typingSent = 0
+State.lastSearch = ""
+State.pinnedMessages = {}
+State.windowTransparency = 0.08
+State.bgTransparency = 0.86
+State.contentTransparency = 0
 
-local myGameName = "Roblox"
+State.activeChannel = "global"
+State.channelsList = { "global", "local" }
+State.channelHistory = { global = {}, ["local"] = {} }
+State.channelButtons = {}
+State.messageFrames = {} -- id -> frame
+
+State.myGameName = "Roblox"
 task.spawn(function()
-	pcall(function() myGameName = MS:GetProductInfo(game.PlaceId).Name end)
-	myGameName = tostring(myGameName or "Roblox"):gsub("[^%w%sА-Яа-я]", ""):sub(1, 12):gsub(" ", "_")
-	if myGameName == "" then myGameName = "Roblox" end
+	pcall(function() State.myGameName = Services.MS:GetProductInfo(game.PlaceId).Name end)
+	State.myGameName = tostring(State.myGameName or "Roblox"):gsub("[^%w%sА-Яа-я]", ""):sub(1, 12):gsub(" ", "_")
+	-- Remove emoji and other non-ASCII characters that break JSON encode
+	State.myGameName = removeEmoji(State.myGameName)
+	if State.myGameName == "" then State.myGameName = "Roblox" end
 end)
 
-local tweenFast = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-local tweenBounce = TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-local tweenSoft = TweenInfo.new(0.35, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out)
-local tweenSmooth = TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+--// ===================== TWEEN TABLE =====================
+local Tween = {}
+Tween.Fast = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+Tween.Bounce = TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+Tween.Soft = TweenInfo.new(0.35, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out)
+Tween.Smooth = TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
 
 --// ===================== FILE STORAGE =====================
 local function saveJSON(name, data)
 	if writefile then
-		pcall(writefile, "neon_chat_" .. name .. ".json", HTTP:JSONEncode(data))
+		pcall(writefile, "neon_chat_" .. name .. ".json", Services.HTTP:JSONEncode(data))
 	end
 end
 
@@ -129,7 +145,7 @@ local function loadJSON(name, default)
 	if hasFS then
 		local ok, data = pcall(readfile, "neon_chat_" .. name .. ".json")
 		if ok then
-			local ok2, parsed = pcall(HTTP.JSONDecode, HTTP, data)
+			local ok2, parsed = pcall(Services.HTTP.JSONDecode, Services.HTTP, data)
 			if ok2 and type(parsed) == "table" then
 				return parsed
 			end
@@ -138,28 +154,28 @@ local function loadJSON(name, default)
 	return default
 end
 
-dmHistory = loadJSON("dms", {})
-dmUnread = loadJSON("dms_unread", {})
-blockedUsers = loadJSON("blocked", {})
+State.dmHistory = loadJSON("dms", {})
+State.dmUnread = loadJSON("dms_unread", {})
+State.blockedUsers = loadJSON("blocked", {})
 local savedSettings = loadJSON("settings", {})
-if savedSettings.col then col = parseColor(savedSettings.col) end
-if savedSettings.fx then fx = savedSettings.fx end
-if savedSettings.msgFx then msgFx = savedSettings.msgFx end
-if savedSettings.bStyle then bStyle = savedSettings.bStyle end
-if savedSettings.winTrans ~= nil then windowTransparency = savedSettings.winTrans end
-if savedSettings.bgTrans ~= nil then bgTransparency = savedSettings.bgTrans end
-if savedSettings.myStatus then myStatus = savedSettings.myStatus end
+if savedSettings.col then State.col = parseColor(savedSettings.col) end
+if savedSettings.fx then State.fx = savedSettings.fx end
+if savedSettings.msgFx then State.msgFx = savedSettings.msgFx end
+if savedSettings.bStyle then State.bStyle = savedSettings.bStyle end
+if savedSettings.winTrans ~= nil then State.windowTransparency = savedSettings.winTrans end
+if savedSettings.bgTrans ~= nil then State.bgTransparency = savedSettings.bgTrans end
+if savedSettings.myStatus then State.myStatus = savedSettings.myStatus end
 
 --// ===================== NOTIFICATIONS =====================
-NotifFrame = Instance.new("Frame", SG)
-NotifFrame.Name = "Notifications"
-NotifFrame.Size = UDim2.new(0, 300, 1, -20)
-NotifFrame.Position = UDim2.new(1, -315, 0, 10)
-NotifFrame.BackgroundTransparency = 1
-NotifLayout = Instance.new("UIListLayout", NotifFrame)
-NotifLayout.SortOrder = Enum.SortOrder.LayoutOrder
-NotifLayout.Padding = UDim.new(0, 8)
-NotifLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
+UI.NotifFrame = Instance.new("Frame", UI.SG)
+UI.NotifFrame.Name = "Notifications"
+UI.NotifFrame.Size = UDim2.new(0, 300, 1, -20)
+UI.NotifFrame.Position = UDim2.new(1, -315, 0, 10)
+UI.NotifFrame.BackgroundTransparency = 1
+UI.NotifLayout = Instance.new("UIListLayout", UI.NotifFrame)
+UI.NotifLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UI.NotifLayout.Padding = UDim.new(0, 8)
+UI.NotifLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
 
 local function showNotification(title, desc, icon)
 	icon = icon or "🔔"
@@ -167,9 +183,9 @@ local function showNotification(title, desc, icon)
 	snd.SoundId = "rbxassetid://6042053626"
 	snd.Volume = 1.2
 	snd:Play()
-	Debris:AddItem(snd, 2)
+	Services.Debris:AddItem(snd, 2)
 
-	local nf = Instance.new("Frame", NotifFrame)
+	local nf = Instance.new("Frame", UI.NotifFrame)
 	nf.Size = UDim2.new(1, 0, 0, 72)
 	nf.BackgroundColor3 = Color3.fromRGB(18, 18, 26)
 	nf.BackgroundTransparency = 1
@@ -177,14 +193,14 @@ local function showNotification(title, desc, icon)
 	nf.ClipsDescendants = true
 	Instance.new("UICorner", nf).CornerRadius = UDim.new(0, 12)
 	local st = Instance.new("UIStroke", nf)
-	st.Color = col
+	st.Color = State.col
 	st.Thickness = 1.5
 	st.Transparency = 1
 
 	local glow = Instance.new("Frame", nf)
 	glow.Size = UDim2.new(1, 0, 0, 2)
 	glow.Position = UDim2.new(0, 0, 0, 0)
-	glow.BackgroundColor3 = col
+	glow.BackgroundColor3 = State.col
 	glow.BackgroundTransparency = 1
 	glow.BorderSizePixel = 0
 
@@ -201,7 +217,7 @@ local function showNotification(title, desc, icon)
 	tL.Position = UDim2.new(0, 44, 0, 8)
 	tL.BackgroundTransparency = 1
 	tL.Text = title
-	tL.TextColor3 = col
+	tL.TextColor3 = State.col
 	tL.Font = Enum.Font.GothamBold
 	tL.TextSize = 13
 	tL.TextXAlignment = Enum.TextXAlignment.Left
@@ -219,164 +235,164 @@ local function showNotification(title, desc, icon)
 	dL.TextWrapped = true
 	dL.TextTransparency = 1
 
-	TS:Create(nf, tweenSoft, {BackgroundTransparency = 0.05, Position = UDim2.new(0, 0, 0, 0)}):Play()
-	TS:Create(st, tweenSoft, {Transparency = 0}):Play()
-	TS:Create(glow, tweenSoft, {BackgroundTransparency = 0}):Play()
-	TS:Create(iconL, tweenSoft, {TextTransparency = 0}):Play()
-	TS:Create(tL, tweenSoft, {TextTransparency = 0}):Play()
-	TS:Create(dL, tweenSoft, {TextTransparency = 0}):Play()
+	Services.TS:Create(nf, Tween.Soft, {BackgroundTransparency = 0.05, Position = UDim2.new(0, 0, 0, 0)}):Play()
+	Services.TS:Create(st, Tween.Soft, {Transparency = 0}):Play()
+	Services.TS:Create(glow, Tween.Soft, {BackgroundTransparency = 0}):Play()
+	Services.TS:Create(iconL, Tween.Soft, {TextTransparency = 0}):Play()
+	Services.TS:Create(tL, Tween.Soft, {TextTransparency = 0}):Play()
+	Services.TS:Create(dL, Tween.Soft, {TextTransparency = 0}):Play()
 
 	task.delay(4.2, function()
 		if not nf.Parent then return end
-		TS:Create(nf, TweenInfo.new(0.35), {BackgroundTransparency = 1, Position = UDim2.new(0, 40, 0, 0)}):Play()
-		TS:Create(st, TweenInfo.new(0.35), {Transparency = 1}):Play()
-		TS:Create(iconL, TweenInfo.new(0.35), {TextTransparency = 1}):Play()
-		TS:Create(tL, TweenInfo.new(0.35), {TextTransparency = 1}):Play()
-		local tw = TS:Create(dL, TweenInfo.new(0.35), {TextTransparency = 1})
+		Services.TS:Create(nf, TweenInfo.new(0.35), {BackgroundTransparency = 1, Position = UDim2.new(0, 40, 0, 0)}):Play()
+		Services.TS:Create(st, TweenInfo.new(0.35), {Transparency = 1}):Play()
+		Services.TS:Create(iconL, TweenInfo.new(0.35), {TextTransparency = 1}):Play()
+		Services.TS:Create(tL, TweenInfo.new(0.35), {TextTransparency = 1}):Play()
+		local tw = Services.TS:Create(dL, TweenInfo.new(0.35), {TextTransparency = 1})
 		tw:Play()
 		tw.Completed:Connect(function() if nf then nf:Destroy() end end)
 	end)
 end
 
 --// ===================== OPEN BUTTON =====================
-MB = Instance.new("TextButton", SG)
-MB.Name = "OpenChatButton"
-MB.Size = UDim2.new(0, 60, 0, 60)
-MB.Position = UDim2.new(0.05, 0, 0.5, -30)
-MB.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
-MB.Text = "💬"
-MB.TextSize = 26
-MB.TextColor3 = col
-MB.Font = Enum.Font.GothamBold
-MB.AutoButtonColor = false
-Instance.new("UICorner", MB).CornerRadius = UDim.new(1, 0)
-MBStroke = Instance.new("UIStroke", MB)
-MBStroke.Color = col
-MBStroke.Thickness = 2.5
+UI.MB = Instance.new("TextButton", UI.SG)
+UI.MB.Name = "OpenChatButton"
+UI.MB.Size = UDim2.new(0, 60, 0, 60)
+UI.MB.Position = UDim2.new(0.05, 0, 0.5, -30)
+UI.MB.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+UI.MB.Text = "💬"
+UI.MB.TextSize = 26
+UI.MB.TextColor3 = State.col
+UI.MB.Font = Enum.Font.GothamBold
+UI.MB.AutoButtonColor = false
+Instance.new("UICorner", UI.MB).CornerRadius = UDim.new(1, 0)
+UI.MBStroke = Instance.new("UIStroke", UI.MB)
+UI.MBStroke.Color = State.col
+UI.MBStroke.Thickness = 2.5
 
-MBBadge = Instance.new("TextLabel", MB)
-MBBadge.Size = UDim2.new(0, 20, 0, 20)
-MBBadge.Position = UDim2.new(1, -12, 0, -4)
-MBBadge.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
-MBBadge.Text = "0"
-MBBadge.TextColor3 = Color3.new(1, 1, 1)
-MBBadge.Font = Enum.Font.GothamBold
-MBBadge.TextSize = 11
-MBBadge.Visible = false
-Instance.new("UICorner", MBBadge).CornerRadius = UDim.new(1, 0)
+UI.MBBadge = Instance.new("TextLabel", UI.MB)
+UI.MBBadge.Size = UDim2.new(0, 20, 0, 20)
+UI.MBBadge.Position = UDim2.new(1, -12, 0, -4)
+UI.MBBadge.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+UI.MBBadge.Text = "0"
+UI.MBBadge.TextColor3 = Color3.new(1, 1, 1)
+UI.MBBadge.Font = Enum.Font.GothamBold
+UI.MBBadge.TextSize = 11
+UI.MBBadge.Visible = false
+Instance.new("UICorner", UI.MBBadge).CornerRadius = UDim.new(1, 0)
 
-MBGlow = Instance.new("Frame", SG)
-MBGlow.Name = "OpenButtonGlow"
-MBGlow.Size = UDim2.new(0, 70, 0, 70)
-MBGlow.Position = MB.Position + UDim2.new(0, -5, 0, -5)
-MBGlow.BackgroundColor3 = col
-MBGlow.BackgroundTransparency = 0.85
-MBGlow.ZIndex = 0
-Instance.new("UICorner", MBGlow).CornerRadius = UDim.new(1, 0)
-MB:GetPropertyChangedSignal("Position"):Connect(function()
-	MBGlow.Position = MB.Position + UDim2.new(0, -5, 0, -5)
+UI.MBGlow = Instance.new("Frame", UI.SG)
+UI.MBGlow.Name = "OpenButtonGlow"
+UI.MBGlow.Size = UDim2.new(0, 70, 0, 70)
+UI.MBGlow.Position = UI.MB.Position + UDim2.new(0, -5, 0, -5)
+UI.MBGlow.BackgroundColor3 = State.col
+UI.MBGlow.BackgroundTransparency = 0.85
+UI.MBGlow.ZIndex = 0
+Instance.new("UICorner", UI.MBGlow).CornerRadius = UDim.new(1, 0)
+UI.MB:GetPropertyChangedSignal("Position"):Connect(function()
+	UI.MBGlow.Position = UI.MB.Position + UDim2.new(0, -5, 0, -5)
 end)
-TS:Create(MBGlow, TweenInfo.new(1.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {BackgroundTransparency = 0.7}):Play()
+Services.TS:Create(UI.MBGlow, TweenInfo.new(1.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {BackgroundTransparency = 0.7}):Play()
 
 local function updateBadge()
 	local total = 0
-	for _, v in pairs(dmUnread) do total = total + (v or 0) end
+	for _, v in pairs(State.dmUnread) do total = total + (v or 0) end
 	if total > 0 then
-		MBBadge.Text = tostring(total)
-		MBBadge.Visible = true
+		UI.MBBadge.Text = tostring(total)
+		UI.MBBadge.Visible = true
 	else
-		MBBadge.Visible = false
+		UI.MBBadge.Visible = false
 	end
 end
 
 --// ===================== MAIN WINDOW =====================
-MFGlow = Instance.new("Frame", SG)
-MFGlow.Name = "MainChatGlow"
-MFGlow.AnchorPoint = Vector2.new(0.5, 0.5)
-MFGlow.Size = UDim2.new(0, 660, 0, 380)
-MFGlow.Position = UDim2.new(0.5, 0, 0.45, 0)
-MFGlow.BackgroundColor3 = col
-MFGlow.BackgroundTransparency = 0.92
-MFGlow.ZIndex = 0
-Instance.new("UICorner", MFGlow).CornerRadius = UDim.new(0, 20)
-TS:Create(MFGlow, TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {BackgroundTransparency = 0.85}):Play()
+UI.MFGlow = Instance.new("Frame", UI.SG)
+UI.MFGlow.Name = "MainChatGlow"
+UI.MFGlow.AnchorPoint = Vector2.new(0.5, 0.5)
+UI.MFGlow.Size = UDim2.new(0, 660, 0, 380)
+UI.MFGlow.Position = UDim2.new(0.5, 0, 0.45, 0)
+UI.MFGlow.BackgroundColor3 = State.col
+UI.MFGlow.BackgroundTransparency = 0.92
+UI.MFGlow.ZIndex = 0
+Instance.new("UICorner", UI.MFGlow).CornerRadius = UDim.new(0, 20)
+Services.TS:Create(UI.MFGlow, TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {BackgroundTransparency = 0.85}):Play()
 
-MF = Instance.new("Frame", SG)
-MF.Name = "MainChat"
-MF.AnchorPoint = Vector2.new(0.5, 0.5)
-MF.Size = UDim2.new(0, 640, 0, 360)
-MF.Position = UDim2.new(0.5, 0, 0.45, 0)
-MF.BackgroundColor3 = Color3.fromRGB(15, 15, 22)
-MF.BackgroundTransparency = windowTransparency
-MF.ClipsDescendants = true
-MF.Visible = false
-MFCorner = Instance.new("UICorner", MF)
-MFCorner.CornerRadius = UDim.new(0, 14)
+UI.MF = Instance.new("Frame", UI.SG)
+UI.MF.Name = "MainChat"
+UI.MF.AnchorPoint = Vector2.new(0.5, 0.5)
+UI.MF.Size = UDim2.new(0, 640, 0, 360)
+UI.MF.Position = UDim2.new(0.5, 0, 0.45, 0)
+UI.MF.BackgroundColor3 = Color3.fromRGB(15, 15, 22)
+UI.MF.BackgroundTransparency = State.windowTransparency
+UI.MF.ClipsDescendants = true
+UI.MF.Visible = false
+UI.MFCorner = Instance.new("UICorner", UI.MF)
+UI.MFCorner.CornerRadius = UDim.new(0, 14)
 
-ChatBG = Instance.new("ImageLabel", MF)
-ChatBG.Name = "CustomBackground"
-ChatBG.Size = UDim2.new(1, 0, 1, 0)
-ChatBG.BackgroundTransparency = 1
-ChatBG.ImageTransparency = bgTransparency
-ChatBG.ScaleType = Enum.ScaleType.Crop
-ChatBG.ZIndex = 0
-Instance.new("UICorner", ChatBG).CornerRadius = UDim.new(0, 14)
+UI.ChatBG = Instance.new("ImageLabel", UI.MF)
+UI.ChatBG.Name = "CustomBackground"
+UI.ChatBG.Size = UDim2.new(1, 0, 1, 0)
+UI.ChatBG.BackgroundTransparency = 1
+UI.ChatBG.ImageTransparency = State.bgTransparency
+UI.ChatBG.ScaleType = Enum.ScaleType.Crop
+UI.ChatBG.ZIndex = 0
+Instance.new("UICorner", UI.ChatBG).CornerRadius = UDim.new(0, 14)
 
-ChatContent = Instance.new("CanvasGroup", MF)
-ChatContent.Name = "ChatContent"
-ChatContent.Size = UDim2.new(1, 0, 1, 0)
-ChatContent.BackgroundTransparency = 1
-ChatContent.GroupTransparency = 0
-ChatContent.ZIndex = 1
+UI.ChatContent = Instance.new("CanvasGroup", UI.MF)
+UI.ChatContent.Name = "ChatContent"
+UI.ChatContent.Size = UDim2.new(1, 0, 1, 0)
+UI.ChatContent.BackgroundTransparency = 1
+UI.ChatContent.GroupTransparency = 0
+UI.ChatContent.ZIndex = 1
 
 --// ===================== HEADER =====================
-HD = Instance.new("Frame", ChatContent)
-HD.Name = "Header"
-HD.Size = UDim2.new(1, 0, 0, 44)
-HD.Position = UDim2.new(0, 0, 0, 0)
-HD.BackgroundColor3 = Color3.fromRGB(22, 22, 32)
-HD.BackgroundTransparency = 0.08
-HD.BorderSizePixel = 0
-HD.ZIndex = 5
-Instance.new("UICorner", HD).CornerRadius = UDim.new(0, 14)
-HeaderFix = Instance.new("Frame", HD)
-HeaderFix.Size = UDim2.new(1, 0, 0, 12)
-HeaderFix.Position = UDim2.new(0, 0, 1, -12)
-HeaderFix.BorderSizePixel = 0
-HeaderFix.BackgroundColor3 = HD.BackgroundColor3
-HeaderFix.BackgroundTransparency = HD.BackgroundTransparency
-HeaderFix.ZIndex = 5
+UI.HD = Instance.new("Frame", UI.ChatContent)
+UI.HD.Name = "Header"
+UI.HD.Size = UDim2.new(1, 0, 0, 44)
+UI.HD.Position = UDim2.new(0, 0, 0, 0)
+UI.HD.BackgroundColor3 = Color3.fromRGB(22, 22, 32)
+UI.HD.BackgroundTransparency = 0.08
+UI.HD.BorderSizePixel = 0
+UI.HD.ZIndex = 5
+Instance.new("UICorner", UI.HD).CornerRadius = UDim.new(0, 14)
+UI.HeaderFix = Instance.new("Frame", UI.HD)
+UI.HeaderFix.Size = UDim2.new(1, 0, 0, 12)
+UI.HeaderFix.Position = UDim2.new(0, 0, 1, -12)
+UI.HeaderFix.BorderSizePixel = 0
+UI.HeaderFix.BackgroundColor3 = UI.HD.BackgroundColor3
+UI.HeaderFix.BackgroundTransparency = UI.HD.BackgroundTransparency
+UI.HeaderFix.ZIndex = 5
 
-HT = Instance.new("TextLabel", HD)
-HT.Size = UDim2.new(1, -240, 1, 0)
-HT.Position = UDim2.new(0, 16, 0, 0)
-HT.BackgroundTransparency = 1
-HT.Text = "🤫 SECRET GLOBAL CHAT"
-HT.TextColor3 = col
-HT.Font = Enum.Font.GothamBold
-HT.TextSize = 14
-HT.TextXAlignment = Enum.TextXAlignment.Left
-HT.ZIndex = 6
+UI.HT = Instance.new("TextLabel", UI.HD)
+UI.HT.Size = UDim2.new(1, -240, 1, 0)
+UI.HT.Position = UDim2.new(0, 16, 0, 0)
+UI.HT.BackgroundTransparency = 1
+UI.HT.Text = "🤫 SECRET GLOBAL CHAT"
+UI.HT.TextColor3 = State.col
+UI.HT.Font = Enum.Font.GothamBold
+UI.HT.TextSize = 14
+UI.HT.TextXAlignment = Enum.TextXAlignment.Left
+UI.HT.ZIndex = 6
 
-SearchBox = Instance.new("TextBox", HD)
-SearchBox.Name = "SearchBox"
-SearchBox.Size = UDim2.new(0, 140, 0, 28)
-SearchBox.Position = UDim2.new(0, 220, 0, 8)
-SearchBox.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-SearchBox.BackgroundTransparency = 0.5
-SearchBox.TextColor3 = Color3.fromRGB(245, 245, 255)
-SearchBox.PlaceholderText = "🔍 Поиск..."
-SearchBox.Text = ""
-SearchBox.Font = Enum.Font.Gotham
-SearchBox.TextSize = 12
-SearchBox.ClearTextOnFocus = false
-SearchBox.Visible = false
-SearchBox.ZIndex = 6
-Instance.new("UICorner", SearchBox).CornerRadius = UDim.new(0, 8)
-Instance.new("UIPadding", SearchBox).PaddingLeft = UDim.new(0, 8)
+UI.SearchBox = Instance.new("TextBox", UI.HD)
+UI.SearchBox.Name = "SearchBox"
+UI.SearchBox.Size = UDim2.new(0, 140, 0, 28)
+UI.SearchBox.Position = UDim2.new(0, 220, 0, 8)
+UI.SearchBox.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+UI.SearchBox.BackgroundTransparency = 0.5
+UI.SearchBox.TextColor3 = Color3.fromRGB(245, 245, 255)
+UI.SearchBox.PlaceholderText = "🔍 Поиск..."
+UI.SearchBox.Text = ""
+UI.SearchBox.Font = Enum.Font.Gotham
+UI.SearchBox.TextSize = 12
+UI.SearchBox.ClearTextOnFocus = false
+UI.SearchBox.Visible = false
+UI.SearchBox.ZIndex = 6
+Instance.new("UICorner", UI.SearchBox).CornerRadius = UDim.new(0, 8)
+Instance.new("UIPadding", UI.SearchBox).PaddingLeft = UDim.new(0, 8)
 
 local function makeHeaderBtn(name, txt, pos, sz)
-	local b = Instance.new("TextButton", HD)
+	local b = Instance.new("TextButton", UI.HD)
 	b.Name = name
 	b.Size = sz or UDim2.new(0, 32, 0, 32)
 	b.Position = pos
@@ -390,294 +406,293 @@ local function makeHeaderBtn(name, txt, pos, sz)
 	b.ZIndex = 6
 	Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
 	b.MouseEnter:Connect(function()
-		TS:Create(b, tweenFast, {BackgroundTransparency = 0.1, BackgroundColor3 = col, TextColor3 = Color3.new(0,0,0)}):Play()
+		Services.TS:Create(b, Tween.Fast, {BackgroundTransparency = 0.1, BackgroundColor3 = State.col, TextColor3 = Color3.new(0,0,0)}):Play()
 	end)
 	b.MouseLeave:Connect(function()
-		TS:Create(b, tweenFast, {BackgroundTransparency = 0.3, BackgroundColor3 = Color3.fromRGB(30,30,42), TextColor3 = Color3.fromRGB(245,245,255)}):Play()
+		Services.TS:Create(b, Tween.Fast, {BackgroundTransparency = 0.3, BackgroundColor3 = Color3.fromRGB(30,30,42), TextColor3 = Color3.fromRGB(245,245,255)}):Play()
 	end)
 	return b
 end
 
-local SearchBtn = makeHeaderBtn("SearchBtn", "🔍", UDim2.new(1, -215, 0, 6))
-local GB = makeHeaderBtn("GifBtn", "🖼️", UDim2.new(1, -178, 0, 6))
-local SB = makeHeaderBtn("SettingsBtn", "⚙️", UDim2.new(1, -141, 0, 6))
-local CB = makeHeaderBtn("ClearBtn", "🗑️", UDim2.new(1, -104, 0, 6))
-local PinBtn = makeHeaderBtn("PinBtn", "📌", UDim2.new(1, -67, 0, 6))
-local CloseBtn = makeHeaderBtn("CloseBtn", "✕", UDim2.new(1, -40, 0, 6))
-CloseBtn.BackgroundColor3 = Color3.fromRGB(50, 25, 25)
-CloseBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
-CloseBtn.MouseEnter:Connect(function()
-	TS:Create(CloseBtn, tweenFast, {BackgroundColor3 = Color3.fromRGB(255, 60, 60), TextColor3 = Color3.new(1,1,1)}):Play()
+UI.SearchBtn = makeHeaderBtn("SearchBtn", "🔍", UDim2.new(1, -215, 0, 6))
+UI.GB = makeHeaderBtn("GifBtn", "🖼️", UDim2.new(1, -178, 0, 6))
+UI.SB = makeHeaderBtn("SettingsBtn", "⚙️", UDim2.new(1, -141, 0, 6))
+UI.CB = makeHeaderBtn("ClearBtn", "🗑️", UDim2.new(1, -104, 0, 6))
+UI.PinBtn = makeHeaderBtn("PinBtn", "📌", UDim2.new(1, -67, 0, 6))
+UI.CloseBtn = makeHeaderBtn("CloseBtn", "✕", UDim2.new(1, -40, 0, 6))
+UI.CloseBtn.BackgroundColor3 = Color3.fromRGB(50, 25, 25)
+UI.CloseBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
+UI.CloseBtn.MouseEnter:Connect(function()
+	Services.TS:Create(UI.CloseBtn, Tween.Fast, {BackgroundColor3 = Color3.fromRGB(255, 60, 60), TextColor3 = Color3.new(1,1,1)}):Play()
 end)
-CloseBtn.MouseLeave:Connect(function()
-	TS:Create(CloseBtn, tweenFast, {BackgroundColor3 = Color3.fromRGB(50, 25, 25), TextColor3 = Color3.fromRGB(255, 100, 100)}):Play()
+UI.CloseBtn.MouseLeave:Connect(function()
+	Services.TS:Create(UI.CloseBtn, Tween.Fast, {BackgroundColor3 = Color3.fromRGB(50, 25, 25), TextColor3 = Color3.fromRGB(255, 100, 100)}):Play()
 end)
 
 --// ===================== SCROLLING MESSAGES =====================
-CL = Instance.new("ScrollingFrame", ChatContent)
-CL.Name = "Messages"
-CL.Size = UDim2.new(1, -132, 1, -148)
-CL.Position = UDim2.new(0, 12, 0, 54)
-CL.BackgroundTransparency = 1
-CL.BorderSizePixel = 0
-CL.ScrollBarThickness = 4
-CL.ScrollBarImageColor3 = col
-CL.CanvasSize = UDim2.new(0, 0, 0, 0)
-CL.ZIndex = 2
-LL = Instance.new("UIListLayout", CL)
-LL.SortOrder = Enum.SortOrder.LayoutOrder
-LL.Padding = UDim.new(0, 8)
-LL:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-	CL.CanvasSize = UDim2.new(0, 0, 0, LL.AbsoluteContentSize.Y + 12)
-	CL.CanvasPosition = Vector2.new(0, math.max(0, LL.AbsoluteContentSize.Y - CL.AbsoluteSize.Y + 12))
+UI.CL = Instance.new("ScrollingFrame", UI.ChatContent)
+UI.CL.Name = "Messages"
+UI.CL.Size = UDim2.new(1, -132, 1, -148)
+UI.CL.Position = UDim2.new(0, 12, 0, 54)
+UI.CL.BackgroundTransparency = 1
+UI.CL.BorderSizePixel = 0
+UI.CL.ScrollBarThickness = 4
+UI.CL.ScrollBarImageColor3 = State.col
+UI.CL.CanvasSize = UDim2.new(0, 0, 0, 0)
+UI.CL.ZIndex = 2
+UI.LL = Instance.new("UIListLayout", UI.CL)
+UI.LL.SortOrder = Enum.SortOrder.LayoutOrder
+UI.LL.Padding = UDim.new(0, 8)
+UI.LL:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+	UI.CL.CanvasSize = UDim2.new(0, 0, 0, UI.LL.AbsoluteContentSize.Y + 12)
+	UI.CL.CanvasPosition = Vector2.new(0, math.max(0, UI.LL.AbsoluteContentSize.Y - UI.CL.AbsoluteSize.Y + 12))
 end)
 
 --// ===================== PINNED MESSAGE BAR =====================
-PinBar = Instance.new("Frame", ChatContent)
-PinBar.Name = "PinBar"
-PinBar.Size = UDim2.new(1, -148, 0, 0)
-PinBar.Position = UDim2.new(0, 12, 0, 48)
-PinBar.BackgroundColor3 = Color3.fromRGB(30, 25, 15)
-PinBar.BackgroundTransparency = 0.1
-PinBar.BorderSizePixel = 0
-PinBar.ClipsDescendants = true
-PinBar.ZIndex = 3
-PinBar.Visible = false
-Instance.new("UICorner", PinBar).CornerRadius = UDim.new(0, 8)
-PinStroke = Instance.new("UIStroke", PinBar)
-PinStroke.Color = Color3.fromRGB(255, 200, 80)
-PinStroke.Thickness = 1.2
-PinLabel = Instance.new("TextLabel", PinBar)
-PinLabel.Size = UDim2.new(1, -28, 1, -8)
-PinLabel.Position = UDim2.new(0, 8, 0, 4)
-PinLabel.BackgroundTransparency = 1
-PinLabel.Text = ""
-PinLabel.TextColor3 = Color3.fromRGB(255, 220, 120)
-PinLabel.Font = Enum.Font.GothamBold
-PinLabel.TextSize = 12
-PinLabel.TextWrapped = true
-PinLabel.TextXAlignment = Enum.TextXAlignment.Left
-PinClose = Instance.new("TextButton", PinBar)
-PinClose.Size = UDim2.new(0, 20, 0, 20)
-PinClose.Position = UDim2.new(1, -24, 0, 4)
-PinClose.BackgroundTransparency = 1
-PinClose.Text = "✕"
-PinClose.TextColor3 = Color3.fromRGB(255, 200, 80)
-PinClose.Font = Enum.Font.GothamBold
-PinClose.TextSize = 14
-PinClose.ZIndex = 4
+UI.PinBar = Instance.new("Frame", UI.ChatContent)
+UI.PinBar.Name = "PinBar"
+UI.PinBar.Size = UDim2.new(1, -148, 0, 0)
+UI.PinBar.Position = UDim2.new(0, 12, 0, 48)
+UI.PinBar.BackgroundColor3 = Color3.fromRGB(30, 25, 15)
+UI.PinBar.BackgroundTransparency = 0.1
+UI.PinBar.BorderSizePixel = 0
+UI.PinBar.ClipsDescendants = true
+UI.PinBar.ZIndex = 3
+UI.PinBar.Visible = false
+Instance.new("UICorner", UI.PinBar).CornerRadius = UDim.new(0, 8)
+UI.PinStroke = Instance.new("UIStroke", UI.PinBar)
+UI.PinStroke.Color = Color3.fromRGB(255, 200, 80)
+UI.PinStroke.Thickness = 1.2
+UI.PinLabel = Instance.new("TextLabel", UI.PinBar)
+UI.PinLabel.Size = UDim2.new(1, -28, 1, -8)
+UI.PinLabel.Position = UDim2.new(0, 8, 0, 4)
+UI.PinLabel.BackgroundTransparency = 1
+UI.PinLabel.Text = ""
+UI.PinLabel.TextColor3 = Color3.fromRGB(255, 220, 120)
+UI.PinLabel.Font = Enum.Font.GothamBold
+UI.PinLabel.TextSize = 12
+UI.PinLabel.TextWrapped = true
+UI.PinLabel.TextXAlignment = Enum.TextXAlignment.Left
+UI.PinClose = Instance.new("TextButton", UI.PinBar)
+UI.PinClose.Size = UDim2.new(0, 20, 0, 20)
+UI.PinClose.Position = UDim2.new(1, -24, 0, 4)
+UI.PinClose.BackgroundTransparency = 1
+UI.PinClose.Text = "✕"
+UI.PinClose.TextColor3 = Color3.fromRGB(255, 200, 80)
+UI.PinClose.Font = Enum.Font.GothamBold
+UI.PinClose.TextSize = 14
+UI.PinClose.ZIndex = 4
 
 --// ===================== TYPING INDICATOR =====================
-TypingBar = Instance.new("Frame", ChatContent)
-TypingBar.Name = "TypingBar"
-TypingBar.Size = UDim2.new(1, -148, 0, 0)
-TypingBar.Position = UDim2.new(0, 12, 1, -96)
-TypingBar.BackgroundTransparency = 1
-TypingBar.ClipsDescendants = true
-TypingBar.ZIndex = 3
-TypingLabel = Instance.new("TextLabel", TypingBar)
-TypingLabel.Size = UDim2.new(1, -10, 0, 18)
-TypingLabel.Position = UDim2.new(0, 5, 0, 0)
-TypingLabel.BackgroundTransparency = 1
-TypingLabel.Text = ""
-TypingLabel.TextColor3 = Color3.fromRGB(180, 180, 190)
-TypingLabel.Font = Enum.Font.Gotham
-TypingLabel.TextSize = 11
-TypingLabel.TextXAlignment = Enum.TextXAlignment.Left
+UI.TypingBar = Instance.new("Frame", UI.ChatContent)
+UI.TypingBar.Name = "TypingBar"
+UI.TypingBar.Size = UDim2.new(1, -148, 0, 0)
+UI.TypingBar.Position = UDim2.new(0, 12, 1, -96)
+UI.TypingBar.BackgroundTransparency = 1
+UI.TypingBar.ClipsDescendants = true
+UI.TypingBar.ZIndex = 3
+UI.TypingLabel = Instance.new("TextLabel", UI.TypingBar)
+UI.TypingLabel.Size = UDim2.new(1, -10, 0, 18)
+UI.TypingLabel.Position = UDim2.new(0, 5, 0, 0)
+UI.TypingLabel.BackgroundTransparency = 1
+UI.TypingLabel.Text = ""
+UI.TypingLabel.TextColor3 = Color3.fromRGB(180, 180, 190)
+UI.TypingLabel.Font = Enum.Font.Gotham
+UI.TypingLabel.TextSize = 11
+UI.TypingLabel.TextXAlignment = Enum.TextXAlignment.Left
 
-local typingUsers = {}
+State.typingUsers = {}
 local function updateTyping()
 	local names = {}
-	for n, t in pairs(typingUsers) do
+	for n, t in pairs(State.typingUsers) do
 		if tick() - t < 4 then
 			table.insert(names, safeName(n))
 		else
-			typingUsers[n] = nil
+			State.typingUsers[n] = nil
 		end
 	end
 	if #names > 0 then
 		local text = table.concat(names, ", ")
 		if #names == 1 then
-			TypingLabel.Text = text .. " печатает..."
+			UI.TypingLabel.Text = text .. " печатает..."
 		else
-			TypingLabel.Text = text .. " печатают..."
+			UI.TypingLabel.Text = text .. " печатают..."
 		end
-		TS:Create(TypingBar, tweenFast, {Size = UDim2.new(1, -148, 0, 20)}):Play()
+		Services.TS:Create(UI.TypingBar, Tween.Fast, {Size = UDim2.new(1, -148, 0, 20)}):Play()
 	else
-		TS:Create(TypingBar, tweenFast, {Size = UDim2.new(1, -148, 0, 0)}):Play()
+		Services.TS:Create(UI.TypingBar, Tween.Fast, {Size = UDim2.new(1, -148, 0, 0)}):Play()
 	end
 end
 
 --// ===================== CHANNELS PANEL =====================
-ChannelsPanel = Instance.new("ScrollingFrame", ChatContent)
-ChannelsPanel.Name = "ChannelsPanel"
-ChannelsPanel.Size = UDim2.new(0, 110, 1, -104)
-ChannelsPanel.Position = UDim2.new(1, -122, 0, 50)
-ChannelsPanel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-ChannelsPanel.BackgroundTransparency = 0.95
-ChannelsPanel.BorderSizePixel = 0
-ChannelsPanel.ScrollBarThickness = 2
-ChannelsPanel.ScrollBarImageColor3 = col
-ChannelsPanel.ZIndex = 2
-ChanLayout = Instance.new("UIListLayout", ChannelsPanel)
-ChanLayout.SortOrder = Enum.SortOrder.LayoutOrder
-ChanLayout.Padding = UDim.new(0, 5)
-ChanLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-	ChannelsPanel.CanvasSize = UDim2.new(0, 0, 0, ChanLayout.AbsoluteContentSize.Y + 10)
+UI.ChannelsPanel = Instance.new("ScrollingFrame", UI.ChatContent)
+UI.ChannelsPanel.Name = "ChannelsPanel"
+UI.ChannelsPanel.Size = UDim2.new(0, 110, 1, -104)
+UI.ChannelsPanel.Position = UDim2.new(1, -122, 0, 50)
+UI.ChannelsPanel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+UI.ChannelsPanel.BackgroundTransparency = 0.95
+UI.ChannelsPanel.BorderSizePixel = 0
+UI.ChannelsPanel.ScrollBarThickness = 2
+UI.ChannelsPanel.ScrollBarImageColor3 = State.col
+UI.ChannelsPanel.ZIndex = 2
+UI.ChanLayout = Instance.new("UIListLayout", UI.ChannelsPanel)
+UI.ChanLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UI.ChanLayout.Padding = UDim.new(0, 5)
+UI.ChanLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+	UI.ChannelsPanel.CanvasSize = UDim2.new(0, 0, 0, UI.ChanLayout.AbsoluteContentSize.Y + 10)
 end)
 
 --// ===================== BOTTOM BAR =====================
-BB = Instance.new("Frame", ChatContent)
-BB.Name = "BottomBar"
-BB.Size = UDim2.new(1, 0, 0, 58)
-BB.Position = UDim2.new(0, 0, 1, -58)
-BB.BackgroundTransparency = 1
-BB.ZIndex = 4
+UI.BB = Instance.new("Frame", UI.ChatContent)
+UI.BB.Name = "BottomBar"
+UI.BB.Size = UDim2.new(1, 0, 0, 58)
+UI.BB.Position = UDim2.new(0, 0, 1, -58)
+UI.BB.BackgroundTransparency = 1
+UI.BB.ZIndex = 4
 
-ReplyBanner = Instance.new("Frame", BB)
-ReplyBanner.Name = "ReplyBanner"
-ReplyBanner.Size = UDim2.new(1, -24, 0, 0)
-ReplyBanner.Position = UDim2.new(0, 12, 0, -22)
-ReplyBanner.BackgroundColor3 = Color3.fromRGB(30, 30, 42)
-ReplyBanner.BackgroundTransparency = 0.2
-ReplyBanner.BorderSizePixel = 0
-ReplyBanner.ClipsDescendants = true
-ReplyBanner.ZIndex = 5
-ReplyBanner.Visible = false
-Instance.new("UICorner", ReplyBanner).CornerRadius = UDim.new(0, 8)
-ReplyText = Instance.new("TextLabel", ReplyBanner)
-ReplyText.Size = UDim2.new(1, -30, 0, 20)
-ReplyText.Position = UDim2.new(0, 8, 0, 2)
-ReplyText.BackgroundTransparency = 1
-ReplyText.Text = ""
-ReplyText.TextColor3 = Color3.fromRGB(200, 200, 210)
-ReplyText.Font = Enum.Font.Gotham
-ReplyText.TextSize = 11
-ReplyText.TextXAlignment = Enum.TextXAlignment.Left
-ReplyText.TextTruncate = Enum.TextTruncate.AtEnd
-ReplyCancel = Instance.new("TextButton", ReplyBanner)
-ReplyCancel.Size = UDim2.new(0, 20, 0, 20)
-ReplyCancel.Position = UDim2.new(1, -24, 0, 2)
-ReplyCancel.BackgroundTransparency = 1
-ReplyCancel.Text = "✕"
-ReplyCancel.TextColor3 = Color3.fromRGB(255, 100, 100)
-ReplyCancel.Font = Enum.Font.GothamBold
-ReplyCancel.TextSize = 14
-ReplyCancel.ZIndex = 6
+UI.ReplyBanner = Instance.new("Frame", UI.BB)
+UI.ReplyBanner.Name = "ReplyBanner"
+UI.ReplyBanner.Size = UDim2.new(1, -24, 0, 0)
+UI.ReplyBanner.Position = UDim2.new(0, 12, 0, -22)
+UI.ReplyBanner.BackgroundColor3 = Color3.fromRGB(30, 30, 42)
+UI.ReplyBanner.BackgroundTransparency = 0.2
+UI.ReplyBanner.BorderSizePixel = 0
+UI.ReplyBanner.ClipsDescendants = true
+UI.ReplyBanner.ZIndex = 5
+UI.ReplyBanner.Visible = false
+Instance.new("UICorner", UI.ReplyBanner).CornerRadius = UDim.new(0, 8)
+UI.ReplyText = Instance.new("TextLabel", UI.ReplyBanner)
+UI.ReplyText.Size = UDim2.new(1, -30, 0, 20)
+UI.ReplyText.Position = UDim2.new(0, 8, 0, 2)
+UI.ReplyText.BackgroundTransparency = 1
+UI.ReplyText.Text = ""
+UI.ReplyText.TextColor3 = Color3.fromRGB(200, 200, 210)
+UI.ReplyText.Font = Enum.Font.Gotham
+UI.ReplyText.TextSize = 11
+UI.ReplyText.TextXAlignment = Enum.TextXAlignment.Left
+UI.ReplyText.TextTruncate = Enum.TextTruncate.AtEnd
+UI.ReplyCancel = Instance.new("TextButton", UI.ReplyBanner)
+UI.ReplyCancel.Size = UDim2.new(0, 20, 0, 20)
+UI.ReplyCancel.Position = UDim2.new(1, -24, 0, 2)
+UI.ReplyCancel.BackgroundTransparency = 1
+UI.ReplyCancel.Text = "✕"
+UI.ReplyCancel.TextColor3 = Color3.fromRGB(255, 100, 100)
+UI.ReplyCancel.Font = Enum.Font.GothamBold
+UI.ReplyCancel.TextSize = 14
+UI.ReplyCancel.ZIndex = 6
 
-IB = Instance.new("TextBox", BB)
-IB.Name = "Input"
-IB.Size = UDim2.new(1, -186, 0, 38)
-IB.Position = UDim2.new(0, 12, 0, 12)
-IB.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
-IB.BackgroundTransparency = 0.35
-IB.TextColor3 = Color3.fromRGB(245, 245, 255)
-IB.PlaceholderText = "Введите сообщение..."
-IB.Text = ""
-IB.TextSize = 13
-IB.Font = Enum.Font.Gotham
-IB.TextXAlignment = Enum.TextXAlignment.Left
-IB.ClearTextOnFocus = false
-IB.ZIndex = 5
-Instance.new("UICorner", IB).CornerRadius = UDim.new(0, 10)
-Instance.new("UIPadding", IB).PaddingLeft = UDim.new(0, 12)
+UI.IB = Instance.new("TextBox", UI.BB)
+UI.IB.Name = "Input"
+UI.IB.Size = UDim2.new(1, -186, 0, 38)
+UI.IB.Position = UDim2.new(0, 12, 0, 12)
+UI.IB.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+UI.IB.BackgroundTransparency = 0.35
+UI.IB.TextColor3 = Color3.fromRGB(245, 245, 255)
+UI.IB.PlaceholderText = "Введите сообщение..."
+UI.IB.Text = ""
+UI.IB.TextSize = 13
+UI.IB.Font = Enum.Font.Gotham
+UI.IB.TextXAlignment = Enum.TextXAlignment.Left
+UI.IB.ClearTextOnFocus = false
+UI.IB.ZIndex = 5
+Instance.new("UICorner", UI.IB).CornerRadius = UDim.new(0, 10)
+Instance.new("UIPadding", UI.IB).PaddingLeft = UDim.new(0, 12)
 
-SndBtn = Instance.new("TextButton", BB)
-SndBtn.Name = "Send"
-SndBtn.Size = UDim2.new(0, 40, 0, 38)
-SndBtn.Position = UDim2.new(1, -168, 0, 12)
-SndBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 42)
-SndBtn.Text = "➤"
-SndBtn.TextColor3 = col
-SndBtn.Font = Enum.Font.GothamBold
-SndBtn.TextSize = 18
-SndBtn.AutoButtonColor = false
-SndBtn.ZIndex = 5
-Instance.new("UICorner", SndBtn).CornerRadius = UDim.new(0, 10)
-SndBtn.MouseEnter:Connect(function() TS:Create(SndBtn, tweenFast, {BackgroundColor3=col, TextColor3=Color3.new(0,0,0)}):Play() end)
-SndBtn.MouseLeave:Connect(function() TS:Create(SndBtn, tweenFast, {BackgroundColor3=Color3.fromRGB(30,30,42), TextColor3=col}):Play() end)
+UI.SndBtn = Instance.new("TextButton", UI.BB)
+UI.SndBtn.Name = "Send"
+UI.SndBtn.Size = UDim2.new(0, 40, 0, 38)
+UI.SndBtn.Position = UDim2.new(1, -168, 0, 12)
+UI.SndBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 42)
+UI.SndBtn.Text = "➤"
+UI.SndBtn.TextColor3 = State.col
+UI.SndBtn.Font = Enum.Font.GothamBold
+UI.SndBtn.TextSize = 18
+UI.SndBtn.AutoButtonColor = false
+UI.SndBtn.ZIndex = 5
+Instance.new("UICorner", UI.SndBtn).CornerRadius = UDim.new(0, 10)
+UI.SndBtn.MouseEnter:Connect(function() Services.TS:Create(UI.SndBtn, Tween.Fast, {BackgroundColor3=State.col, TextColor3=Color3.new(0,0,0)}):Play() end)
+UI.SndBtn.MouseLeave:Connect(function() Services.TS:Create(UI.SndBtn, Tween.Fast, {BackgroundColor3=Color3.fromRGB(30,30,42), TextColor3=State.col}):Play() end)
 
-ReplyBtn = Instance.new("TextButton", BB)
-ReplyBtn.Size = UDim2.new(0, 36, 0, 38)
-ReplyBtn.Position = UDim2.new(1, -124, 0, 12)
-ReplyBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 42)
-ReplyBtn.Text = "↩️"
-ReplyBtn.TextSize = 16
-ReplyBtn.AutoButtonColor = false
-ReplyBtn.ZIndex = 5
-Instance.new("UICorner", ReplyBtn).CornerRadius = UDim.new(0, 10)
-ReplyBtn.MouseEnter:Connect(function() TS:Create(ReplyBtn, tweenFast, {BackgroundColor3=col}):Play() end)
-ReplyBtn.MouseLeave:Connect(function() TS:Create(ReplyBtn, tweenFast, {BackgroundColor3=Color3.fromRGB(30,30,42)}):Play() end)
+UI.ReplyBtn = Instance.new("TextButton", UI.BB)
+UI.ReplyBtn.Size = UDim2.new(0, 36, 0, 38)
+UI.ReplyBtn.Position = UDim2.new(1, -124, 0, 12)
+UI.ReplyBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 42)
+UI.ReplyBtn.Text = "↩️"
+UI.ReplyBtn.TextSize = 16
+UI.ReplyBtn.AutoButtonColor = false
+UI.ReplyBtn.ZIndex = 5
+Instance.new("UICorner", UI.ReplyBtn).CornerRadius = UDim.new(0, 10)
+UI.ReplyBtn.MouseEnter:Connect(function() Services.TS:Create(UI.ReplyBtn, Tween.Fast, {BackgroundColor3=State.col}):Play() end)
+UI.ReplyBtn.MouseLeave:Connect(function() Services.TS:Create(UI.ReplyBtn, Tween.Fast, {BackgroundColor3=Color3.fromRGB(30,30,42)}):Play() end)
 
-GifQuickBtn = Instance.new("TextButton", BB)
-GifQuickBtn.Size = UDim2.new(0, 36, 0, 38)
-GifQuickBtn.Position = UDim2.new(1, -82, 0, 12)
-GifQuickBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 42)
-GifQuickBtn.Text = "🖼️"
-GifQuickBtn.TextSize = 16
-GifQuickBtn.AutoButtonColor = false
-GifQuickBtn.ZIndex = 5
-Instance.new("UICorner", GifQuickBtn).CornerRadius = UDim.new(0, 10)
-GifQuickBtn.MouseEnter:Connect(function() TS:Create(GifQuickBtn, tweenFast, {BackgroundColor3=col}):Play() end)
-GifQuickBtn.MouseLeave:Connect(function() TS:Create(GifQuickBtn, tweenFast, {BackgroundColor3=Color3.fromRGB(30,30,42)}):Play() end)
+UI.GifQuickBtn = Instance.new("TextButton", UI.BB)
+UI.GifQuickBtn.Size = UDim2.new(0, 36, 0, 38)
+UI.GifQuickBtn.Position = UDim2.new(1, -82, 0, 12)
+UI.GifQuickBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 42)
+UI.GifQuickBtn.Text = "🖼️"
+UI.GifQuickBtn.TextSize = 16
+UI.GifQuickBtn.AutoButtonColor = false
+UI.GifQuickBtn.ZIndex = 5
+Instance.new("UICorner", UI.GifQuickBtn).CornerRadius = UDim.new(0, 10)
+UI.GifQuickBtn.MouseEnter:Connect(function() Services.TS:Create(UI.GifQuickBtn, Tween.Fast, {BackgroundColor3=State.col}):Play() end)
+UI.GifQuickBtn.MouseLeave:Connect(function() Services.TS:Create(UI.GifQuickBtn, Tween.Fast, {BackgroundColor3=Color3.fromRGB(30,30,42)}):Play() end)
 
-RS = Instance.new("ImageLabel", ChatContent)
-RS.Name = "ResizeHandle"
-RS.Size = UDim2.new(0, 16, 0, 16)
-RS.Position = UDim2.new(1, -20, 1, -20)
-RS.BackgroundTransparency = 1
-RS.Image = "rbxassetid://5012544693"
-RS.ImageColor3 = col
-RS.ZIndex = 10
+UI.RS = Instance.new("ImageLabel", UI.ChatContent)
+UI.RS.Name = "ResizeHandle"
+UI.RS.Size = UDim2.new(0, 16, 0, 16)
+UI.RS.Position = UDim2.new(1, -20, 1, -20)
+UI.RS.BackgroundTransparency = 1
+UI.RS.Image = "rbxassetid://5012544693"
+UI.RS.ImageColor3 = State.col
+UI.RS.ZIndex = 10
 
 --// ===================== GIF PANEL =====================
-GF = Instance.new("ScrollingFrame", ChatContent)
-GF.Name = "GifPanel"
-GF.Size = UDim2.new(1, -132, 1, -104)
-GF.Position = UDim2.new(-1, 0, 0, 50)
-GF.BackgroundTransparency = 1
-GF.BorderSizePixel = 0
-GF.Visible = false
-GF.ScrollBarThickness = 4
-GF.ScrollBarImageColor3 = col
-GF.CanvasSize = UDim2.new(0, 0, 0, 0)
-GF.ZIndex = 3
-GL = Instance.new("UIGridLayout", GF)
-GL.CellSize = UDim2.new(0, 90, 0, 90)
-GL.CellPadding = UDim2.new(0, 12, 0, 12)
-GL.SortOrder = Enum.SortOrder.LayoutOrder
-GL:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-	GF.CanvasSize = UDim2.new(0, 0, 0, GL.AbsoluteContentSize.Y + 12)
+UI.GF = Instance.new("ScrollingFrame", UI.ChatContent)
+UI.GF.Name = "GifPanel"
+UI.GF.Size = UDim2.new(1, -132, 1, -104)
+UI.GF.Position = UDim2.new(-1, 0, 0, 50)
+UI.GF.BackgroundTransparency = 1
+UI.GF.BorderSizePixel = 0
+UI.GF.Visible = false
+UI.GF.ScrollBarThickness = 4
+UI.GF.ScrollBarImageColor3 = State.col
+UI.GF.CanvasSize = UDim2.new(0, 0, 0, 0)
+UI.GF.ZIndex = 3
+UI.GL = Instance.new("UIGridLayout", UI.GF)
+UI.GL.CellSize = UDim2.new(0, 90, 0, 90)
+UI.GL.CellPadding = UDim2.new(0, 12, 0, 12)
+UI.GL.SortOrder = Enum.SortOrder.LayoutOrder
+UI.GL:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+	UI.GF.CanvasSize = UDim2.new(0, 0, 0, UI.GL.AbsoluteContentSize.Y + 12)
 end)
 
 --// ===================== SETTINGS PANEL =====================
-SettingsGroup = Instance.new("CanvasGroup", ChatContent)
-SettingsGroup.Name = "SettingsGroup"
-SettingsGroup.Size = UDim2.new(1, -132, 1, -104)
-SettingsGroup.Position = UDim2.new(1, 0, 0, 50)
-SettingsGroup.BackgroundTransparency = 1
-SettingsGroup.GroupTransparency = 0
-SettingsGroup.Visible = false
-SettingsGroup.ZIndex = 4
+UI.SettingsGroup = Instance.new("CanvasGroup", UI.ChatContent)
+UI.SettingsGroup.Name = "SettingsGroup"
+UI.SettingsGroup.Size = UDim2.new(1, -132, 1, -104)
+UI.SettingsGroup.Position = UDim2.new(1, 0, 0, 50)
+UI.SettingsGroup.BackgroundTransparency = 1
+UI.SettingsGroup.GroupTransparency = 0
+UI.SettingsGroup.Visible = false
+UI.SettingsGroup.ZIndex = 4
 
-SettingsBG = Instance.new("Frame", SettingsGroup)
-SettingsBG.Name = "SettingsBG"
-SettingsBG.Size = UDim2.new(1, 0, 1, 0)
-SettingsBG.BackgroundColor3 = Color3.fromRGB(15, 15, 22)
-SettingsBG.BackgroundTransparency = 0.2
-SettingsBG.BorderSizePixel = 0
-Instance.new("UICorner", SettingsBG).CornerRadius = UDim.new(0, 14)
+UI.SettingsBG = Instance.new("Frame", UI.SettingsGroup)
+UI.SettingsBG.Name = "SettingsBG"
+UI.SettingsBG.Size = UDim2.new(1, 0, 1, 0)
+UI.SettingsBG.BackgroundColor3 = Color3.fromRGB(15, 15, 22)
+UI.SettingsBG.BackgroundTransparency = 0.2
+UI.SettingsBG.BorderSizePixel = 0
+Instance.new("UICorner", UI.SettingsBG).CornerRadius = UDim.new(0, 14)
 
--- Settings Tabs
-SettingsTabs = Instance.new("Frame", SettingsGroup)
-SettingsTabs.Name = "SettingsTabs"
-SettingsTabs.Size = UDim2.new(1, -20, 0, 34)
-SettingsTabs.Position = UDim2.new(0, 10, 0, 10)
-SettingsTabs.BackgroundTransparency = 1
-SettingsTabs.ZIndex = 6
+UI.SettingsTabs = Instance.new("Frame", UI.SettingsGroup)
+UI.SettingsTabs.Name = "SettingsTabs"
+UI.SettingsTabs.Size = UDim2.new(1, -20, 0, 34)
+UI.SettingsTabs.Position = UDim2.new(0, 10, 0, 10)
+UI.SettingsTabs.BackgroundTransparency = 1
+UI.SettingsTabs.ZIndex = 6
 
 local function makeSettingsTab(name, text, x)
-	local b = Instance.new("TextButton", SettingsTabs)
+	local b = Instance.new("TextButton", UI.SettingsTabs)
 	b.Name = name
 	b.Size = UDim2.new(0, 90, 1, 0)
 	b.Position = UDim2.new(0, x, 0, 0)
@@ -693,54 +708,52 @@ local function makeSettingsTab(name, text, x)
 	return b
 end
 
-local TabNick = makeSettingsTab("TabNick", "🎨 Ник", 0)
-local TabText = makeSettingsTab("TabText", "✏️ Текст", 95)
-local TabEffects = makeSettingsTab("TabEffects", "✨ Эффекты", 190)
-local TabChat = makeSettingsTab("TabChat", "⚙️ Чат", 285)
-local TabSystem = makeSettingsTab("TabSystem", "🛡️ Система", 380)
+UI.TabNick = makeSettingsTab("TabNick", "🎨 Ник", 0)
+UI.TabText = makeSettingsTab("TabText", "✏️ Текст", 95)
+UI.TabEffects = makeSettingsTab("TabEffects", "✨ Эффекты", 190)
+UI.TabChat = makeSettingsTab("TabChat", "⚙️ Чат", 285)
+UI.TabSystem = makeSettingsTab("TabSystem", "🛡️ Система", 380)
 
-local settingsTabButtons = {TabNick, TabText, TabEffects, TabChat, TabSystem}
-local currentSettingsTab = "nick"
+UI.settingsTabButtons = {UI.TabNick, UI.TabText, UI.TabEffects, UI.TabChat, UI.TabSystem}
+State.currentSettingsTab = "nick"
 
--- Settings Content Container
-SettingsContent = Instance.new("Frame", SettingsGroup)
-SettingsContent.Name = "SettingsContent"
-SettingsContent.Size = UDim2.new(1, -20, 1, -54)
-SettingsContent.Position = UDim2.new(0, 10, 0, 50)
-SettingsContent.BackgroundTransparency = 1
-SettingsContent.ZIndex = 6
-SettingsContent.ClipsDescendants = true
+UI.SettingsContent = Instance.new("Frame", UI.SettingsGroup)
+UI.SettingsContent.Name = "SettingsContent"
+UI.SettingsContent.Size = UDim2.new(1, -20, 1, -54)
+UI.SettingsContent.Position = UDim2.new(0, 10, 0, 50)
+UI.SettingsContent.BackgroundTransparency = 1
+UI.SettingsContent.ZIndex = 6
+UI.SettingsContent.ClipsDescendants = true
 
 local function makeContentFrame(name)
-	local f = Instance.new("ScrollingFrame", SettingsContent)
+	local f = Instance.new("ScrollingFrame", UI.SettingsContent)
 	f.Name = name
 	f.Size = UDim2.new(1, 0, 1, 0)
 	f.Position = UDim2.new(0, 0, 0, 0)
 	f.BackgroundTransparency = 1
 	f.BorderSizePixel = 0
 	f.ScrollBarThickness = 3
-	f.ScrollBarImageColor3 = col
+	f.ScrollBarImageColor3 = State.col
 	f.CanvasSize = UDim2.new(0, 0, 0, 600)
 	f.Visible = false
 	f.ZIndex = 6
 	return f
 end
 
-local NickContent = makeContentFrame("NickContent")
-local TextContent = makeContentFrame("TextContent")
-local EffectsContent = makeContentFrame("EffectsContent")
-local ChatContentSettings = makeContentFrame("ChatContentSettings")
-local SystemContent = makeContentFrame("SystemContent")
+UI.NickContent = makeContentFrame("NickContent")
+UI.TextContent = makeContentFrame("TextContent")
+UI.EffectsContent = makeContentFrame("EffectsContent")
+UI.ChatContentSettings = makeContentFrame("ChatContentSettings")
+UI.SystemContent = makeContentFrame("SystemContent")
 
--- Effects Sub-tabs
-EffectsSubTabs = Instance.new("Frame", EffectsContent)
-EffectsSubTabs.Size = UDim2.new(1, 0, 0, 28)
-EffectsSubTabs.Position = UDim2.new(0, 0, 0, 0)
-EffectsSubTabs.BackgroundTransparency = 1
-EffectsSubTabs.ZIndex = 7
+UI.EffectsSubTabs = Instance.new("Frame", UI.EffectsContent)
+UI.EffectsSubTabs.Size = UDim2.new(1, 0, 0, 28)
+UI.EffectsSubTabs.Position = UDim2.new(0, 0, 0, 0)
+UI.EffectsSubTabs.BackgroundTransparency = 1
+UI.EffectsSubTabs.ZIndex = 7
 
 local function makeSubTab(name, text, x)
-	local b = Instance.new("TextButton", EffectsSubTabs)
+	local b = Instance.new("TextButton", UI.EffectsSubTabs)
 	b.Name = name
 	b.Size = UDim2.new(0, 110, 1, 0)
 	b.Position = UDim2.new(0, x, 0, 0)
@@ -756,41 +769,41 @@ local function makeSubTab(name, text, x)
 	return b
 end
 
-local SubNickFx = makeSubTab("SubNickFx", "Эффекты ника", 0)
-local SubTextFx = makeSubTab("SubTextFx", "Эффекты текста", 120)
+UI.SubNickFx = makeSubTab("SubNickFx", "Эффекты ника", 0)
+UI.SubTextFx = makeSubTab("SubTextFx", "Эффекты текста", 120)
 
-EffectsNickContent = Instance.new("Frame", EffectsContent)
-EffectsNickContent.Size = UDim2.new(1, 0, 1, -36)
-EffectsNickContent.Position = UDim2.new(0, 0, 0, 36)
-EffectsNickContent.BackgroundTransparency = 1
-EffectsNickContent.ZIndex = 7
+UI.EffectsNickContent = Instance.new("Frame", UI.EffectsContent)
+UI.EffectsNickContent.Size = UDim2.new(1, 0, 1, -36)
+UI.EffectsNickContent.Position = UDim2.new(0, 0, 0, 36)
+UI.EffectsNickContent.BackgroundTransparency = 1
+UI.EffectsNickContent.ZIndex = 7
 
-EffectsTextContent = Instance.new("Frame", EffectsContent)
-EffectsTextContent.Size = UDim2.new(1, 0, 1, -36)
-EffectsTextContent.Position = UDim2.new(1, 0, 0, 36)
-EffectsTextContent.BackgroundTransparency = 1
-EffectsTextContent.ZIndex = 7
+UI.EffectsTextContent = Instance.new("Frame", UI.EffectsContent)
+UI.EffectsTextContent.Size = UDim2.new(1, 0, 1, -36)
+UI.EffectsTextContent.Position = UDim2.new(1, 0, 0, 36)
+UI.EffectsTextContent.BackgroundTransparency = 1
+UI.EffectsTextContent.ZIndex = 7
 
 --// ===================== CONTEXT MENU =====================
-CMenu = Instance.new("Frame", SG)
-CMenu.Name = "ContextMenu"
-CMenu.Size = UDim2.new(0, 200, 0, 0)
-CMenu.BackgroundColor3 = Color3.fromRGB(24, 24, 34)
-CMenu.Visible = false
-CMenu.ZIndex = 100
-CMenu.Active = true
-CMenu.ClipsDescendants = true
-Instance.new("UICorner", CMenu).CornerRadius = UDim.new(0, 12)
-CMenuStroke = Instance.new("UIStroke", CMenu)
-CMenuStroke.Color = col
-CMenuStroke.Thickness = 1.2
+UI.CMenu = Instance.new("Frame", UI.SG)
+UI.CMenu.Name = "ContextMenu"
+UI.CMenu.Size = UDim2.new(0, 200, 0, 0)
+UI.CMenu.BackgroundColor3 = Color3.fromRGB(24, 24, 34)
+UI.CMenu.Visible = false
+UI.CMenu.ZIndex = 100
+UI.CMenu.Active = true
+UI.CMenu.ClipsDescendants = true
+Instance.new("UICorner", UI.CMenu).CornerRadius = UDim.new(0, 12)
+UI.CMenuStroke = Instance.new("UIStroke", UI.CMenu)
+UI.CMenuStroke.Color = State.col
+UI.CMenuStroke.Thickness = 1.2
 
-CMenuLayout = Instance.new("UIListLayout", CMenu)
-CMenuLayout.SortOrder = Enum.SortOrder.LayoutOrder
-CMenuLayout.Padding = UDim.new(0, 4)
+UI.CMenuLayout = Instance.new("UIListLayout", UI.CMenu)
+UI.CMenuLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UI.CMenuLayout.Padding = UDim.new(0, 4)
 
 local function makeContextItem(icon, text, color)
-	local b = Instance.new("TextButton", CMenu)
+	local b = Instance.new("TextButton", UI.CMenu)
 	b.Size = UDim2.new(1, -12, 0, 30)
 	b.BackgroundColor3 = Color3.fromRGB(32, 32, 44)
 	b.BackgroundTransparency = 0.5
@@ -802,108 +815,108 @@ local function makeContextItem(icon, text, color)
 	b.AutoButtonColor = false
 	b.ZIndex = 101
 	Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
-	b.MouseEnter:Connect(function() TS:Create(b, tweenFast, {BackgroundTransparency = 0.1, BackgroundColor3 = col, TextColor3 = Color3.new(0,0,0)}):Play() end)
-	b.MouseLeave:Connect(function() TS:Create(b, tweenFast, {BackgroundTransparency = 0.5, BackgroundColor3 = Color3.fromRGB(32,32,44), TextColor3 = color or Color3.fromRGB(245,245,255)}):Play() end)
+	b.MouseEnter:Connect(function() Services.TS:Create(b, Tween.Fast, {BackgroundTransparency = 0.1, BackgroundColor3 = State.col, TextColor3 = Color3.new(0,0,0)}):Play() end)
+	b.MouseLeave:Connect(function() Services.TS:Create(b, Tween.Fast, {BackgroundTransparency = 0.5, BackgroundColor3 = Color3.fromRGB(32,32,44), TextColor3 = color or Color3.fromRGB(245,245,255)}):Play() end)
 	return b
 end
 
-local CTitle = makeContextItem("👤", "Игрок", Color3.fromRGB(90, 255, 150))
-local btnProfile = makeContextItem("👤", "Профиль")
-local btnPM = makeContextItem("💬", "Написать в ЛС")
-local btnPing = makeContextItem("🔔", "Упомянуть")
-local btnReply = makeContextItem("↩️", "Ответить")
-local btnBlock = makeContextItem("🚫", "Заблокировать", Color3.fromRGB(255, 100, 100))
-local btnReact = makeContextItem("😀", "Реакция")
-local btnEdit = makeContextItem("✏️", "Редактировать", Color3.fromRGB(100, 200, 255))
-local btnDelete = makeContextItem("🗑️", "Удалить", Color3.fromRGB(255, 100, 100))
-local btnPin = makeContextItem("📌", "Закрепить", Color3.fromRGB(255, 200, 80))
+UI.CTitle = makeContextItem("👤", "Игрок", Color3.fromRGB(90, 255, 150))
+UI.btnProfile = makeContextItem("👤", "Профиль")
+UI.btnPM = makeContextItem("💬", "Написать в ЛС")
+UI.btnPing = makeContextItem("🔔", "Упомянуть")
+UI.btnReply = makeContextItem("↩️", "Ответить")
+UI.btnBlock = makeContextItem("🚫", "Заблокировать", Color3.fromRGB(255, 100, 100))
+UI.btnReact = makeContextItem("😀", "Реакция")
+UI.btnEdit = makeContextItem("✏️", "Редактировать", Color3.fromRGB(100, 200, 255))
+UI.btnDelete = makeContextItem("🗑️", "Удалить", Color3.fromRGB(255, 100, 100))
+UI.btnPin = makeContextItem("📌", "Закрепить", Color3.fromRGB(255, 200, 80))
 
-CMenuLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-	CMenu.Size = UDim2.new(0, 200, 0, CMenuLayout.AbsoluteContentSize.Y + 10)
+UI.CMenuLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+	UI.CMenu.Size = UDim2.new(0, 200, 0, UI.CMenuLayout.AbsoluteContentSize.Y + 10)
 end)
 
 --// ===================== PROFILE WINDOW =====================
-ProfileFrame = Instance.new("Frame", SG)
-ProfileFrame.Size = UDim2.new(0, 260, 0, 0)
-ProfileFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
-ProfileFrame.Visible = false
-ProfileFrame.ZIndex = 150
-ProfileFrame.ClipsDescendants = true
-Instance.new("UICorner", ProfileFrame).CornerRadius = UDim.new(0, 14)
-ProfileStroke = Instance.new("UIStroke", ProfileFrame)
-ProfileStroke.Color = col
-ProfileStroke.Thickness = 1.5
+UI.ProfileFrame = Instance.new("Frame", UI.SG)
+UI.ProfileFrame.Size = UDim2.new(0, 260, 0, 0)
+UI.ProfileFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+UI.ProfileFrame.Visible = false
+UI.ProfileFrame.ZIndex = 150
+UI.ProfileFrame.ClipsDescendants = true
+Instance.new("UICorner", UI.ProfileFrame).CornerRadius = UDim.new(0, 14)
+UI.ProfileStroke = Instance.new("UIStroke", UI.ProfileFrame)
+UI.ProfileStroke.Color = State.col
+UI.ProfileStroke.Thickness = 1.5
 
-ProfileAvatar = Instance.new("ImageLabel", ProfileFrame)
-ProfileAvatar.Size = UDim2.new(0, 70, 0, 70)
-ProfileAvatar.Position = UDim2.new(0, 14, 0, 14)
-ProfileAvatar.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-ProfileAvatar.Image = ""
-Instance.new("UICorner", ProfileAvatar).CornerRadius = UDim.new(1, 0)
+UI.ProfileAvatar = Instance.new("ImageLabel", UI.ProfileFrame)
+UI.ProfileAvatar.Size = UDim2.new(0, 70, 0, 70)
+UI.ProfileAvatar.Position = UDim2.new(0, 14, 0, 14)
+UI.ProfileAvatar.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+UI.ProfileAvatar.Image = ""
+Instance.new("UICorner", UI.ProfileAvatar).CornerRadius = UDim.new(1, 0)
 
-ProfileName = Instance.new("TextLabel", ProfileFrame)
-ProfileName.Size = UDim2.new(1, -100, 0, 22)
-ProfileName.Position = UDim2.new(0, 94, 0, 16)
-ProfileName.BackgroundTransparency = 1
-ProfileName.Text = ""
-ProfileName.TextColor3 = col
-ProfileName.Font = Enum.Font.GothamBold
-ProfileName.TextSize = 15
-ProfileName.TextXAlignment = Enum.TextXAlignment.Left
+UI.ProfileName = Instance.new("TextLabel", UI.ProfileFrame)
+UI.ProfileName.Size = UDim2.new(1, -100, 0, 22)
+UI.ProfileName.Position = UDim2.new(0, 94, 0, 16)
+UI.ProfileName.BackgroundTransparency = 1
+UI.ProfileName.Text = ""
+UI.ProfileName.TextColor3 = State.col
+UI.ProfileName.Font = Enum.Font.GothamBold
+UI.ProfileName.TextSize = 15
+UI.ProfileName.TextXAlignment = Enum.TextXAlignment.Left
 
-ProfileStatus = Instance.new("TextLabel", ProfileFrame)
-ProfileStatus.Size = UDim2.new(1, -100, 0, 18)
-ProfileStatus.Position = UDim2.new(0, 94, 0, 40)
-ProfileStatus.BackgroundTransparency = 1
-ProfileStatus.Text = ""
-ProfileStatus.TextColor3 = Color3.fromRGB(150, 150, 160)
-ProfileStatus.Font = Enum.Font.Gotham
-ProfileStatus.TextSize = 12
-ProfileStatus.TextXAlignment = Enum.TextXAlignment.Left
+UI.ProfileStatus = Instance.new("TextLabel", UI.ProfileFrame)
+UI.ProfileStatus.Size = UDim2.new(1, -100, 0, 18)
+UI.ProfileStatus.Position = UDim2.new(0, 94, 0, 40)
+UI.ProfileStatus.BackgroundTransparency = 1
+UI.ProfileStatus.Text = ""
+UI.ProfileStatus.TextColor3 = Color3.fromRGB(150, 150, 160)
+UI.ProfileStatus.Font = Enum.Font.Gotham
+UI.ProfileStatus.TextSize = 12
+UI.ProfileStatus.TextXAlignment = Enum.TextXAlignment.Left
 
-ProfileGame = Instance.new("TextLabel", ProfileFrame)
-ProfileGame.Size = UDim2.new(1, -28, 0, 18)
-ProfileGame.Position = UDim2.new(0, 14, 0, 96)
-ProfileGame.BackgroundTransparency = 1
-ProfileGame.Text = ""
-ProfileGame.TextColor3 = Color3.fromRGB(180, 180, 190)
-ProfileGame.Font = Enum.Font.Gotham
-ProfileGame.TextSize = 12
-ProfileGame.TextXAlignment = Enum.TextXAlignment.Left
+UI.ProfileGame = Instance.new("TextLabel", UI.ProfileFrame)
+UI.ProfileGame.Size = UDim2.new(1, -28, 0, 18)
+UI.ProfileGame.Position = UDim2.new(0, 14, 0, 96)
+UI.ProfileGame.BackgroundTransparency = 1
+UI.ProfileGame.Text = ""
+UI.ProfileGame.TextColor3 = Color3.fromRGB(180, 180, 190)
+UI.ProfileGame.Font = Enum.Font.Gotham
+UI.ProfileGame.TextSize = 12
+UI.ProfileGame.TextXAlignment = Enum.TextXAlignment.Left
 
-ProfileVoice = Instance.new("TextLabel", ProfileFrame)
-ProfileVoice.Size = UDim2.new(1, -28, 0, 18)
-ProfileVoice.Position = UDim2.new(0, 14, 0, 116)
-ProfileVoice.BackgroundTransparency = 1
-ProfileVoice.Text = ""
-ProfileVoice.TextColor3 = Color3.fromRGB(180, 180, 190)
-ProfileVoice.Font = Enum.Font.Gotham
-ProfileVoice.TextSize = 12
-ProfileVoice.TextXAlignment = Enum.TextXAlignment.Left
+UI.ProfileVoice = Instance.new("TextLabel", UI.ProfileFrame)
+UI.ProfileVoice.Size = UDim2.new(1, -28, 0, 18)
+UI.ProfileVoice.Position = UDim2.new(0, 14, 0, 116)
+UI.ProfileVoice.BackgroundTransparency = 1
+UI.ProfileVoice.Text = ""
+UI.ProfileVoice.TextColor3 = Color3.fromRGB(180, 180, 190)
+UI.ProfileVoice.Font = Enum.Font.Gotham
+UI.ProfileVoice.TextSize = 12
+UI.ProfileVoice.TextXAlignment = Enum.TextXAlignment.Left
 
-ProfileClose = Instance.new("TextButton", ProfileFrame)
-ProfileClose.Size = UDim2.new(0, 24, 0, 24)
-ProfileClose.Position = UDim2.new(1, -32, 0, 8)
-ProfileClose.BackgroundTransparency = 1
-ProfileClose.Text = "✕"
-ProfileClose.TextColor3 = Color3.fromRGB(255, 100, 100)
-ProfileClose.Font = Enum.Font.GothamBold
-ProfileClose.TextSize = 16
-ProfileClose.ZIndex = 151
+UI.ProfileClose = Instance.new("TextButton", UI.ProfileFrame)
+UI.ProfileClose.Size = UDim2.new(0, 24, 0, 24)
+UI.ProfileClose.Position = UDim2.new(1, -32, 0, 8)
+UI.ProfileClose.BackgroundTransparency = 1
+UI.ProfileClose.Text = "✕"
+UI.ProfileClose.TextColor3 = Color3.fromRGB(255, 100, 100)
+UI.ProfileClose.Font = Enum.Font.GothamBold
+UI.ProfileClose.TextSize = 16
+UI.ProfileClose.ZIndex = 151
 
 --// ===================== EMOJI REACTION PICKER =====================
-ReactionPicker = Instance.new("Frame", SG)
-ReactionPicker.Size = UDim2.new(0, 260, 0, 44)
-ReactionPicker.BackgroundColor3 = Color3.fromRGB(24, 24, 34)
-ReactionPicker.Visible = false
-ReactionPicker.ZIndex = 120
-Instance.new("UICorner", ReactionPicker).CornerRadius = UDim.new(0, 12)
-ReactionStroke = Instance.new("UIStroke", ReactionPicker)
-ReactionStroke.Color = col
-ReactionStroke.Thickness = 1.2
+UI.ReactionPicker = Instance.new("Frame", UI.SG)
+UI.ReactionPicker.Size = UDim2.new(0, 260, 0, 44)
+UI.ReactionPicker.BackgroundColor3 = Color3.fromRGB(24, 24, 34)
+UI.ReactionPicker.Visible = false
+UI.ReactionPicker.ZIndex = 120
+Instance.new("UICorner", UI.ReactionPicker).CornerRadius = UDim.new(0, 12)
+UI.ReactionStroke = Instance.new("UIStroke", UI.ReactionPicker)
+UI.ReactionStroke.Color = State.col
+UI.ReactionStroke.Thickness = 1.2
 
 for i, emoji in ipairs(EMOJI_LIST) do
-	local b = Instance.new("TextButton", ReactionPicker)
+	local b = Instance.new("TextButton", UI.ReactionPicker)
 	b.Size = UDim2.new(0, 32, 0, 32)
 	b.Position = UDim2.new(0, 8 + (i-1)*38, 0, 6)
 	b.BackgroundTransparency = 0.8
@@ -912,214 +925,314 @@ for i, emoji in ipairs(EMOJI_LIST) do
 	b.AutoButtonColor = false
 	b.ZIndex = 121
 	Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
-	b.MouseEnter:Connect(function() TS:Create(b, tweenFast, {BackgroundTransparency = 0.2, BackgroundColor3 = col}):Play() end)
-	b.MouseLeave:Connect(function() TS:Create(b, tweenFast, {BackgroundTransparency = 0.8, BackgroundColor3 = Color3.fromRGB(24,24,34)}):Play() end)
+	b.MouseEnter:Connect(function() Services.TS:Create(b, Tween.Fast, {BackgroundTransparency = 0.2, BackgroundColor3 = State.col}):Play() end)
+	b.MouseLeave:Connect(function() Services.TS:Create(b, Tween.Fast, {BackgroundTransparency = 0.8, BackgroundColor3 = Color3.fromRGB(24,24,34)}):Play() end)
 end
 
 --// ===================== DYNAMIC ISLAND / PM =====================
-Island = Instance.new("Frame", SG)
-Island.Name = "DynamicIslandPM"
-Island.AnchorPoint = Vector2.new(0.5, 0)
-Island.Size = UDim2.new(0, 180, 0, 36)
-Island.Position = UDim2.new(0.5, 0, 0, -50)
-Island.BackgroundColor3 = Color3.fromRGB(15, 15, 22)
-Island.ClipsDescendants = true
-Island.ZIndex = 20
-Instance.new("UICorner", Island).CornerRadius = UDim.new(1, 0)
+UI.Island = Instance.new("Frame", UI.SG)
+UI.Island.Name = "DynamicIslandPM"
+UI.Island.AnchorPoint = Vector2.new(0.5, 0)
+UI.Island.Size = UDim2.new(0, 180, 0, 36)
+UI.Island.Position = UDim2.new(0.5, 0, 0, -50)
+UI.Island.BackgroundColor3 = Color3.fromRGB(15, 15, 22)
+UI.Island.ClipsDescendants = true
+UI.Island.ZIndex = 20
+Instance.new("UICorner", UI.Island).CornerRadius = UDim.new(1, 0)
 
-IslandStroke = Instance.new("UIStroke", Island)
-IslandStroke.Color = col
-IslandStroke.Thickness = 1.5
+UI.IslandStroke = Instance.new("UIStroke", UI.Island)
+UI.IslandStroke.Color = State.col
+UI.IslandStroke.Thickness = 1.5
 
-IslandText = Instance.new("TextLabel", Island)
-IslandText.Size = UDim2.new(1, 0, 1, 0)
-IslandText.BackgroundTransparency = 1
-IslandText.Text = "✉️ Личные сообщения"
-IslandText.TextColor3 = col
-IslandText.Font = Enum.Font.GothamBold
-IslandText.TextSize = 12
-IslandText.ZIndex = 21
+UI.IslandText = Instance.new("TextLabel", UI.Island)
+UI.IslandText.Size = UDim2.new(1, 0, 1, 0)
+UI.IslandText.BackgroundTransparency = 1
+UI.IslandText.Text = "✉️ Личные сообщения"
+UI.IslandText.TextColor3 = State.col
+UI.IslandText.Font = Enum.Font.GothamBold
+UI.IslandText.TextSize = 12
+UI.IslandText.ZIndex = 21
 
-IslandOpenButton = Instance.new("TextButton", Island)
-IslandOpenButton.Size = UDim2.new(1, 0, 1, 0)
-IslandOpenButton.BackgroundTransparency = 1
-IslandOpenButton.Text = ""
-IslandOpenButton.ZIndex = 22
+UI.IslandOpenButton = Instance.new("TextButton", UI.Island)
+UI.IslandOpenButton.Size = UDim2.new(1, 0, 1, 0)
+UI.IslandOpenButton.BackgroundTransparency = 1
+UI.IslandOpenButton.Text = ""
+UI.IslandOpenButton.ZIndex = 22
 
-IslandClose = Instance.new("TextButton", Island)
-IslandClose.Size = UDim2.new(0, 30, 0, 30)
-IslandClose.Position = UDim2.new(1, -36, 0, 6)
-IslandClose.BackgroundTransparency = 1
-IslandClose.Text = "✖"
-IslandClose.TextColor3 = Color3.fromRGB(255, 100, 100)
-IslandClose.Font = Enum.Font.GothamBold
-IslandClose.TextSize = 16
-IslandClose.Visible = false
-IslandClose.ZIndex = 25
+UI.IslandClose = Instance.new("TextButton", UI.Island)
+UI.IslandClose.Size = UDim2.new(0, 30, 0, 30)
+UI.IslandClose.Position = UDim2.new(1, -36, 0, 6)
+UI.IslandClose.BackgroundTransparency = 1
+UI.IslandClose.Text = "✖"
+UI.IslandClose.TextColor3 = Color3.fromRGB(255, 100, 100)
+UI.IslandClose.Font = Enum.Font.GothamBold
+UI.IslandClose.TextSize = 16
+UI.IslandClose.Visible = false
+UI.IslandClose.ZIndex = 25
 
-PMTitle = Instance.new("TextLabel", Island)
-PMTitle.Size = UDim2.new(1, -50, 0, 34)
-PMTitle.Position = UDim2.new(0, 18, 0, 5)
-PMTitle.BackgroundTransparency = 1
-PMTitle.Text = "Личные сообщения"
-PMTitle.TextColor3 = col
-PMTitle.Font = Enum.Font.GothamBold
-PMTitle.TextSize = 15
-PMTitle.TextXAlignment = Enum.TextXAlignment.Left
-PMTitle.Visible = false
-PMTitle.ZIndex = 24
+UI.PMTitle = Instance.new("TextLabel", UI.Island)
+UI.PMTitle.Size = UDim2.new(1, -50, 0, 34)
+UI.PMTitle.Position = UDim2.new(0, 18, 0, 5)
+UI.PMTitle.BackgroundTransparency = 1
+UI.PMTitle.Text = "Личные сообщения"
+UI.PMTitle.TextColor3 = State.col
+UI.PMTitle.Font = Enum.Font.GothamBold
+UI.PMTitle.TextSize = 15
+UI.PMTitle.TextXAlignment = Enum.TextXAlignment.Left
+UI.PMTitle.Visible = false
+UI.PMTitle.ZIndex = 24
 
-PMList = Instance.new("ScrollingFrame", Island)
-PMList.Size = UDim2.new(0, 180, 1, -58)
-PMList.Position = UDim2.new(0, 12, 0, 48)
-PMList.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
-PMList.BackgroundTransparency = 0.12
-PMList.BorderSizePixel = 0
-PMList.ScrollBarThickness = 3
-PMList.ScrollBarImageColor3 = col
-PMList.Visible = false
-PMList.ZIndex = 23
-Instance.new("UICorner", PMList).CornerRadius = UDim.new(0, 10)
-PMListLayout = Instance.new("UIListLayout", PMList)
-PMListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-PMListLayout.Padding = UDim.new(0, 6)
-PMListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() PMList.CanvasSize = UDim2.new(0, 0, 0, PMListLayout.AbsoluteContentSize.Y + 10) end)
+UI.PMList = Instance.new("ScrollingFrame", UI.Island)
+UI.PMList.Size = UDim2.new(0, 180, 1, -58)
+UI.PMList.Position = UDim2.new(0, 12, 0, 48)
+UI.PMList.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+UI.PMList.BackgroundTransparency = 0.12
+UI.PMList.BorderSizePixel = 0
+UI.PMList.ScrollBarThickness = 3
+UI.PMList.ScrollBarImageColor3 = State.col
+UI.PMList.Visible = false
+UI.PMList.ZIndex = 23
+Instance.new("UICorner", UI.PMList).CornerRadius = UDim.new(0, 10)
+UI.PMListLayout = Instance.new("UIListLayout", UI.PMList)
+UI.PMListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UI.PMListLayout.Padding = UDim.new(0, 6)
+UI.PMListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() UI.PMList.CanvasSize = UDim2.new(0, 0, 0, UI.PMListLayout.AbsoluteContentSize.Y + 10) end)
 
-PMHeader = Instance.new("TextLabel", Island)
-PMHeader.Size = UDim2.new(1, -210, 0, 30)
-PMHeader.Position = UDim2.new(0, 200, 0, 48)
-PMHeader.BackgroundTransparency = 1
-PMHeader.Text = "Выбери чат слева"
-PMHeader.TextColor3 = Color3.fromRGB(240, 240, 250)
-PMHeader.Font = Enum.Font.GothamBold
-PMHeader.TextSize = 14
-PMHeader.TextXAlignment = Enum.TextXAlignment.Left
-PMHeader.Visible = false
-PMHeader.ZIndex = 23
+UI.PMHeader = Instance.new("TextLabel", UI.Island)
+UI.PMHeader.Size = UDim2.new(1, -210, 0, 30)
+UI.PMHeader.Position = UDim2.new(0, 200, 0, 48)
+UI.PMHeader.BackgroundTransparency = 1
+UI.PMHeader.Text = "Выбери чат слева"
+UI.PMHeader.TextColor3 = Color3.fromRGB(240, 240, 250)
+UI.PMHeader.Font = Enum.Font.GothamBold
+UI.PMHeader.TextSize = 14
+UI.PMHeader.TextXAlignment = Enum.TextXAlignment.Left
+UI.PMHeader.Visible = false
+UI.PMHeader.ZIndex = 23
 
-PMMessages = Instance.new("ScrollingFrame", Island)
-PMMessages.Size = UDim2.new(1, -210, 1, -145)
-PMMessages.Position = UDim2.new(0, 200, 0, 82)
-PMMessages.BackgroundTransparency = 1
-PMMessages.BorderSizePixel = 0
-PMMessages.ScrollBarThickness = 3
-PMMessages.ScrollBarImageColor3 = col
-PMMessages.Visible = false
-PMMessages.ZIndex = 23
-PMMsgLayout = Instance.new("UIListLayout", PMMessages)
-PMMsgLayout.SortOrder = Enum.SortOrder.LayoutOrder
-PMMsgLayout.Padding = UDim.new(0, 7)
-PMMsgLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-	PMMessages.CanvasSize = UDim2.new(0, 0, 0, PMMsgLayout.AbsoluteContentSize.Y + 10)
-	PMMessages.CanvasPosition = Vector2.new(0, math.max(0, PMMsgLayout.AbsoluteContentSize.Y - PMMessages.AbsoluteSize.Y + 10))
+UI.PMMessages = Instance.new("ScrollingFrame", UI.Island)
+UI.PMMessages.Size = UDim2.new(1, -210, 1, -145)
+UI.PMMessages.Position = UDim2.new(0, 200, 0, 82)
+UI.PMMessages.BackgroundTransparency = 1
+UI.PMMessages.BorderSizePixel = 0
+UI.PMMessages.ScrollBarThickness = 3
+UI.PMMessages.ScrollBarImageColor3 = State.col
+UI.PMMessages.Visible = false
+UI.PMMessages.ZIndex = 23
+UI.PMMsgLayout = Instance.new("UIListLayout", UI.PMMessages)
+UI.PMMsgLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UI.PMMsgLayout.Padding = UDim.new(0, 7)
+UI.PMMsgLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+	UI.PMMessages.CanvasSize = UDim2.new(0, 0, 0, UI.PMMsgLayout.AbsoluteContentSize.Y + 10)
+	UI.PMMessages.CanvasPosition = Vector2.new(0, math.max(0, UI.PMMsgLayout.AbsoluteContentSize.Y - UI.PMMessages.AbsoluteSize.Y + 10))
 end)
 
-PMInput = Instance.new("TextBox", Island)
-PMInput.Size = UDim2.new(1, -285, 0, 36)
-PMInput.Position = UDim2.new(0, 200, 1, -50)
-PMInput.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
-PMInput.BackgroundTransparency = 0.2
-PMInput.TextColor3 = Color3.new(1, 1, 1)
-PMInput.PlaceholderText = "Сообщение в ЛС..."
-PMInput.Text = ""
-PMInput.Font = Enum.Font.Gotham
-PMInput.TextSize = 13
-PMInput.TextXAlignment = Enum.TextXAlignment.Left
-PMInput.ClearTextOnFocus = false
-PMInput.Visible = false
-PMInput.ZIndex = 23
-Instance.new("UICorner", PMInput).CornerRadius = UDim.new(0, 9)
-Instance.new("UIPadding", PMInput).PaddingLeft = UDim.new(0, 12)
+UI.PMInput = Instance.new("TextBox", UI.Island)
+UI.PMInput.Size = UDim2.new(1, -285, 0, 36)
+UI.PMInput.Position = UDim2.new(0, 200, 1, -50)
+UI.PMInput.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+UI.PMInput.BackgroundTransparency = 0.2
+UI.PMInput.TextColor3 = Color3.new(1, 1, 1)
+UI.PMInput.PlaceholderText = "Сообщение в ЛС..."
+UI.PMInput.Text = ""
+UI.PMInput.Font = Enum.Font.Gotham
+UI.PMInput.TextSize = 13
+UI.PMInput.TextXAlignment = Enum.TextXAlignment.Left
+UI.PMInput.ClearTextOnFocus = false
+UI.PMInput.Visible = false
+UI.PMInput.ZIndex = 23
+Instance.new("UICorner", UI.PMInput).CornerRadius = UDim.new(0, 9)
+Instance.new("UIPadding", UI.PMInput).PaddingLeft = UDim.new(0, 12)
 
-PMGifButton = Instance.new("TextButton", Island)
-PMGifButton.Size = UDim2.new(0, 38, 0, 36)
-PMGifButton.Position = UDim2.new(1, -80, 1, -50)
-PMGifButton.BackgroundColor3 = Color3.fromRGB(30, 30, 42)
-PMGifButton.Text = "🖼️"
-PMGifButton.TextSize = 15
-PMGifButton.Visible = false
-PMGifButton.ZIndex = 23
-Instance.new("UICorner", PMGifButton).CornerRadius = UDim.new(0, 9)
+UI.PMGifButton = Instance.new("TextButton", UI.Island)
+UI.PMGifButton.Size = UDim2.new(0, 38, 0, 36)
+UI.PMGifButton.Position = UDim2.new(1, -80, 1, -50)
+UI.PMGifButton.BackgroundColor3 = Color3.fromRGB(30, 30, 42)
+UI.PMGifButton.Text = "🖼️"
+UI.PMGifButton.TextSize = 15
+UI.PMGifButton.Visible = false
+UI.PMGifButton.ZIndex = 23
+Instance.new("UICorner", UI.PMGifButton).CornerRadius = UDim.new(0, 9)
 
-PMSend = Instance.new("TextButton", Island)
-PMSend.Size = UDim2.new(0, 38, 0, 36)
-PMSend.Position = UDim2.new(1, -38, 1, -50)
-PMSend.BackgroundColor3 = Color3.fromRGB(30, 30, 42)
-PMSend.Text = "➤"
-PMSend.TextColor3 = col
-PMSend.Font = Enum.Font.GothamBold
-PMSend.TextSize = 16
-PMSend.Visible = false
-PMSend.ZIndex = 23
-Instance.new("UICorner", PMSend).CornerRadius = UDim.new(0, 9)
+UI.PMSend = Instance.new("TextButton", UI.Island)
+UI.PMSend.Size = UDim2.new(0, 38, 0, 36)
+UI.PMSend.Position = UDim2.new(1, -38, 1, -50)
+UI.PMSend.BackgroundColor3 = Color3.fromRGB(30, 30, 42)
+UI.PMSend.Text = "➤"
+UI.PMSend.TextColor3 = State.col
+UI.PMSend.Font = Enum.Font.GothamBold
+UI.PMSend.TextSize = 16
+UI.PMSend.Visible = false
+UI.PMSend.ZIndex = 23
+Instance.new("UICorner", UI.PMSend).CornerRadius = UDim.new(0, 9)
 
-PMGifPanel = Instance.new("ScrollingFrame", Island)
-PMGifPanel.Size = UDim2.new(0, 240, 0, 170)
-PMGifPanel.Position = UDim2.new(1, -252, 1, -225)
-PMGifPanel.BackgroundColor3 = Color3.fromRGB(18, 18, 26)
-PMGifPanel.BackgroundTransparency = 0.05
-PMGifPanel.BorderSizePixel = 0
-PMGifPanel.ScrollBarThickness = 3
-PMGifPanel.ScrollBarImageColor3 = col
-PMGifPanel.Visible = false
-PMGifPanel.ZIndex = 30
-Instance.new("UICorner", PMGifPanel).CornerRadius = UDim.new(0, 10)
+UI.PMRequestsBtn = Instance.new("TextButton", UI.Island)
+UI.PMRequestsBtn.Size = UDim2.new(0, 34, 0, 34)
+UI.PMRequestsBtn.Position = UDim2.new(1, -130, 0, 5)
+UI.PMRequestsBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 42)
+UI.PMRequestsBtn.Text = "📥"
+UI.PMRequestsBtn.TextSize = 16
+UI.PMRequestsBtn.Visible = false
+UI.PMRequestsBtn.ZIndex = 24
+Instance.new("UICorner", UI.PMRequestsBtn).CornerRadius = UDim.new(0, 8)
 
-PMGifGrid = Instance.new("UIGridLayout", PMGifPanel)
-PMGifGrid.CellSize = UDim2.new(0, 62, 0, 62)
-PMGifGrid.CellPadding = UDim2.new(0, 8, 0, 8)
-PMGifGrid:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() PMGifPanel.CanvasSize = UDim2.new(0, 0, 0, PMGifGrid.AbsoluteContentSize.Y + 10) end)
+UI.PMRequestsBadge = Instance.new("TextLabel", UI.PMRequestsBtn)
+UI.PMRequestsBadge.Size = UDim2.new(0, 16, 0, 16)
+UI.PMRequestsBadge.Position = UDim2.new(1, -10, 0, -4)
+UI.PMRequestsBadge.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+UI.PMRequestsBadge.TextColor3 = Color3.new(1, 1, 1)
+UI.PMRequestsBadge.Font = Enum.Font.GothamBold
+UI.PMRequestsBadge.TextSize = 9
+UI.PMRequestsBadge.Visible = false
+UI.PMRequestsBadge.ZIndex = 25
+Instance.new("UICorner", UI.PMRequestsBadge).CornerRadius = UDim.new(1, 0)
 
-IslandResize = Instance.new("ImageLabel", Island)
-IslandResize.Size = UDim2.new(0, 16, 0, 16)
-IslandResize.Position = UDim2.new(1, -19, 1, -19)
-IslandResize.BackgroundTransparency = 1
-IslandResize.Image = "rbxassetid://5012544693"
-IslandResize.ImageColor3 = col
-IslandResize.Visible = false
-IslandResize.ZIndex = 40
+UI.PMInfoPanel = Instance.new("Frame", UI.Island)
+UI.PMInfoPanel.Size = UDim2.new(1, -210, 0, 60)
+UI.PMInfoPanel.Position = UDim2.new(0, 200, 0, 82)
+UI.PMInfoPanel.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+UI.PMInfoPanel.BackgroundTransparency = 0.15
+UI.PMInfoPanel.BorderSizePixel = 0
+UI.PMInfoPanel.Visible = false
+UI.PMInfoPanel.ZIndex = 23
+Instance.new("UICorner", UI.PMInfoPanel).CornerRadius = UDim.new(0, 10)
+
+UI.PMInfoGame = Instance.new("TextLabel", UI.PMInfoPanel)
+UI.PMInfoGame.Size = UDim2.new(1, -10, 0, 18)
+UI.PMInfoGame.Position = UDim2.new(0, 5, 0, 4)
+UI.PMInfoGame.BackgroundTransparency = 1
+UI.PMInfoGame.Text = "🎮 Игра: -"
+UI.PMInfoGame.TextColor3 = Color3.fromRGB(220, 220, 230)
+UI.PMInfoGame.Font = Enum.Font.Gotham
+UI.PMInfoGame.TextSize = 11
+UI.PMInfoGame.TextXAlignment = Enum.TextXAlignment.Left
+
+UI.PMInfoPlace = Instance.new("TextLabel", UI.PMInfoPanel)
+UI.PMInfoPlace.Size = UDim2.new(1, -10, 0, 18)
+UI.PMInfoPlace.Position = UDim2.new(0, 5, 0, 22)
+UI.PMInfoPlace.BackgroundTransparency = 1
+UI.PMInfoPlace.Text = "🆔 Place: -"
+UI.PMInfoPlace.TextColor3 = Color3.fromRGB(180, 180, 190)
+UI.PMInfoPlace.Font = Enum.Font.Gotham
+UI.PMInfoPlace.TextSize = 10
+UI.PMInfoPlace.TextXAlignment = Enum.TextXAlignment.Left
+
+UI.PMJoinBtn = Instance.new("TextButton", UI.PMInfoPanel)
+UI.PMJoinBtn.Size = UDim2.new(0, 80, 0, 24)
+UI.PMJoinBtn.Position = UDim2.new(1, -88, 0, 32)
+UI.PMJoinBtn.BackgroundColor3 = State.col
+UI.PMJoinBtn.Text = "🚀 Join"
+UI.PMJoinBtn.TextColor3 = Color3.new(0, 0, 0)
+UI.PMJoinBtn.Font = Enum.Font.GothamBold
+UI.PMJoinBtn.TextSize = 10
+UI.PMJoinBtn.ZIndex = 24
+Instance.new("UICorner", UI.PMJoinBtn).CornerRadius = UDim.new(0, 6)
+
+UI.PMRequestsFrame = Instance.new("Frame", UI.Island)
+UI.PMRequestsFrame.Size = UDim2.new(0, 260, 0, 0)
+UI.PMRequestsFrame.Position = UDim2.new(1, -270, 0, 44)
+UI.PMRequestsFrame.BackgroundColor3 = Color3.fromRGB(22, 22, 32)
+UI.PMRequestsFrame.BackgroundTransparency = 0.05
+UI.PMRequestsFrame.BorderSizePixel = 0
+UI.PMRequestsFrame.Visible = false
+UI.PMRequestsFrame.ClipsDescendants = true
+UI.PMRequestsFrame.ZIndex = 35
+Instance.new("UICorner", UI.PMRequestsFrame).CornerRadius = UDim.new(0, 12)
+Instance.new("UIStroke", UI.PMRequestsFrame).Color = State.col
+
+UI.PMRequestsTitle = Instance.new("TextLabel", UI.PMRequestsFrame)
+UI.PMRequestsTitle.Size = UDim2.new(1, -10, 0, 24)
+UI.PMRequestsTitle.Position = UDim2.new(0, 5, 0, 6)
+UI.PMRequestsTitle.BackgroundTransparency = 1
+UI.PMRequestsTitle.Text = "Заявки на ЛС"
+UI.PMRequestsTitle.TextColor3 = State.col
+UI.PMRequestsTitle.Font = Enum.Font.GothamBold
+UI.PMRequestsTitle.TextSize = 13
+UI.PMRequestsTitle.ZIndex = 36
+
+UI.PMRequestsList = Instance.new("ScrollingFrame", UI.PMRequestsFrame)
+UI.PMRequestsList.Size = UDim2.new(1, -10, 1, -36)
+UI.PMRequestsList.Position = UDim2.new(0, 5, 0, 30)
+UI.PMRequestsList.BackgroundTransparency = 1
+UI.PMRequestsList.BorderSizePixel = 0
+UI.PMRequestsList.ScrollBarThickness = 3
+UI.PMRequestsList.ScrollBarImageColor3 = State.col
+UI.PMRequestsList.ZIndex = 36
+UI.PMRequestsLayout = Instance.new("UIListLayout", UI.PMRequestsList)
+UI.PMRequestsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UI.PMRequestsLayout.Padding = UDim.new(0, 6)
+UI.PMRequestsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() UI.PMRequestsList.CanvasSize = UDim2.new(0, 0, 0, UI.PMRequestsLayout.AbsoluteContentSize.Y + 10) end)
+
+UI.PMGifPanel = Instance.new("ScrollingFrame", UI.Island)
+UI.PMGifPanel.Size = UDim2.new(0, 240, 0, 170)
+UI.PMGifPanel.Position = UDim2.new(1, -252, 1, -225)
+UI.PMGifPanel.BackgroundColor3 = Color3.fromRGB(18, 18, 26)
+UI.PMGifPanel.BackgroundTransparency = 0.05
+UI.PMGifPanel.BorderSizePixel = 0
+UI.PMGifPanel.ScrollBarThickness = 3
+UI.PMGifPanel.ScrollBarImageColor3 = State.col
+UI.PMGifPanel.Visible = false
+UI.PMGifPanel.ZIndex = 30
+Instance.new("UICorner", UI.PMGifPanel).CornerRadius = UDim.new(0, 10)
+
+UI.PMGifGrid = Instance.new("UIGridLayout", UI.PMGifPanel)
+UI.PMGifGrid.CellSize = UDim2.new(0, 62, 0, 62)
+UI.PMGifGrid.CellPadding = UDim2.new(0, 8, 0, 8)
+UI.PMGifGrid:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() UI.PMGifPanel.CanvasSize = UDim2.new(0, 0, 0, UI.PMGifGrid.AbsoluteContentSize.Y + 10) end)
+
+UI.IslandResize = Instance.new("ImageLabel", UI.Island)
+UI.IslandResize.Size = UDim2.new(0, 16, 0, 16)
+UI.IslandResize.Position = UDim2.new(1, -19, 1, -19)
+UI.IslandResize.BackgroundTransparency = 1
+UI.IslandResize.Image = "rbxassetid://5012544693"
+UI.IslandResize.ImageColor3 = State.col
+UI.IslandResize.Visible = false
+UI.IslandResize.ZIndex = 40
 
 local function setIslandContentVisible(v)
-	PMTitle.Visible = v
-	PMList.Visible = v
-	PMHeader.Visible = v
-	PMMessages.Visible = v
-	PMInput.Visible = v
-	PMSend.Visible = v
-	PMGifButton.Visible = v
-	IslandResize.Visible = v
+	UI.PMTitle.Visible = v
+	UI.PMList.Visible = v
+	UI.PMHeader.Visible = v
+	UI.PMMessages.Visible = v
+	UI.PMInput.Visible = v
+	UI.PMSend.Visible = v
+	UI.PMGifButton.Visible = v
+	UI.IslandResize.Visible = v
+	UI.PMRequestsBtn.Visible = v
+	UI.PMRequestsFrame.Visible = false
+	if not v then UI.PMInfoPanel.Visible = false end
 end
 
 local function openIsland()
-	if islandOpen then return end
-	islandOpen = true
-	IslandText.Visible, IslandOpenButton.Visible, IslandClose.Visible = false, false, true
-	TS:Create(Island, TweenInfo.new(0.55, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 650, 0, 390), Position = UDim2.new(0.5, 0, 0.16, 0)}):Play()
-	TS:Create(Island:FindFirstChildOfClass("UICorner"), tweenFast, {CornerRadius = UDim.new(0, 16)}):Play()
+	if State.islandOpen then return end
+	State.islandOpen = true
+	UI.IslandText.Visible, UI.IslandOpenButton.Visible, UI.IslandClose.Visible = false, false, true
+	Services.TS:Create(UI.Island, TweenInfo.new(0.55, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 650, 0, 390), Position = UDim2.new(0.5, 0, 0.16, 0)}):Play()
+	Services.TS:Create(UI.Island:FindFirstChildOfClass("UICorner"), Tween.Fast, {CornerRadius = UDim.new(0, 16)}):Play()
 	task.delay(0.18, function()
-		if islandOpen then setIslandContentVisible(true) end
+		if State.islandOpen then setIslandContentVisible(true) end
 	end)
 end
 
 local function closeIsland()
-	if not islandOpen then return end
-	islandOpen = false
+	if not State.islandOpen then return end
+	State.islandOpen = false
 	setIslandContentVisible(false)
-	PMGifPanel.Visible, IslandClose.Visible = false, false
-	local tw = TS:Create(Island, TweenInfo.new(0.42, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Size = UDim2.new(0, 180, 0, 36), Position = UDim2.new(0.5, 0, 0, 10)})
+	UI.PMGifPanel.Visible, UI.IslandClose.Visible = false, false
+	local tw = Services.TS:Create(UI.Island, TweenInfo.new(0.42, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Size = UDim2.new(0, 180, 0, 36), Position = UDim2.new(0.5, 0, 0, 10)})
 	tw:Play()
-	TS:Create(Island:FindFirstChildOfClass("UICorner"), tweenFast, {CornerRadius = UDim.new(1, 0)}):Play()
+	Services.TS:Create(UI.Island:FindFirstChildOfClass("UICorner"), Tween.Fast, {CornerRadius = UDim.new(1, 0)}):Play()
 	tw.Completed:Connect(function()
-		if not islandOpen then
-			IslandText.Visible, IslandOpenButton.Visible = true, true
+		if not State.islandOpen then
+			UI.IslandText.Visible, UI.IslandOpenButton.Visible = true, true
 		end
 	end)
 end
 
-IslandOpenButton.MouseButton1Click:Connect(openIsland)
-IslandClose.MouseButton1Click:Connect(closeIsland)
+UI.IslandOpenButton.MouseButton1Click:Connect(openIsland)
+UI.IslandClose.MouseButton1Click:Connect(closeIsland)
 task.delay(1, function()
-	TS:Create(Island, tweenBounce, {Position = UDim2.new(0.5, 0, 0, 10)}):Play()
+	Services.TS:Create(UI.Island, Tween.Bounce, {Position = UDim2.new(0.5, 0, 0, 10)}):Play()
 end)
 
 --// ===================== COOLDOWN =====================
@@ -1207,17 +1320,17 @@ local function updatePlayerDot(player)
 	end)
 end
 
-PL.PlayerAdded:Connect(function(p)
+Services.PL.PlayerAdded:Connect(function(p)
 	p.CharacterAdded:Connect(function() task.wait(1.2) updatePlayerDot(p) end)
 end)
 
-for _, p in ipairs(PL:GetPlayers()) do
+for _, p in ipairs(Services.PL:GetPlayers()) do
 	if p.Character then task.spawn(updatePlayerDot, p) end
 	p.CharacterAdded:Connect(function() task.wait(1.2) updatePlayerDot(p) end)
 end
 
 task.spawn(function()
-	local rem = ReplicatedStorage:WaitForChild("NeonRemote", 6)
+	local rem = Services.ReplicatedStorage:WaitForChild("NeonRemote", 6)
 	if rem then pcall(function() rem:FireServer("Register") end) end
 end)
 
@@ -1419,52 +1532,52 @@ end
 
 --// ===================== GIF RESOLVER =====================
 local gifCache = {}
-local function resolveImageId(assetId)
-	assetId = tostring(assetId)
-	if gifCache[assetId] then return gifCache[assetId] end
+
+local function getImageCandidates(assetId)
 	local num = tonumber(assetId)
-	if not num then gifCache[assetId] = assetId; return assetId end
+	if not num then return {assetId} end
+	-- Decal assets usually use image id = asset id + 1
+	-- Image assets use the same id
+	return {num + 1, num, num - 1}
+end
 
-	if req then
-		local ok, res = pcall(req, {
-			Url = API_URL .. "/resolve-image/" .. assetId,
-			Method = "GET",
-			Headers = GET_HEADERS
-		})
-		if ok and res and res.StatusCode == 200 then
-			local ok2, data = pcall(HTTP.JSONDecode, HTTP, res.Body)
-			if ok2 and data and data.image_id then
-				gifCache[assetId] = tostring(data.image_id)
-				return gifCache[assetId]
-			end
-		end
+local function applyWorkingImage(img, assetId)
+	if not img or not img.Parent then return end
+	local candidates = getImageCandidates(assetId)
+
+	-- Try cached working id first
+	if gifCache[tostring(assetId)] then
+		img.Image = "rbxassetid://" .. gifCache[tostring(assetId)]
+		return
 	end
 
-	local ok, model = pcall(function() return InsertService:LoadAsset(num) end)
-	if ok and model then
-		local found = nil
-		for _, desc in ipairs(model:GetDescendants()) do
-			if desc:IsA("Decal") or desc:IsA("Texture") then
-				local tex = desc.Texture
-				local id = tex and tex:match("%d+")
-				if id then found = id; break end
+	-- Try each candidate and use first that loads
+	task.spawn(function()
+		for _, id in ipairs(candidates) do
+			if not img or not img.Parent then return end
+			img.Image = "rbxassetid://" .. id
+
+			local attempts = 0
+			while img and img.Parent and not img.IsLoaded and attempts < 15 do
+				task.wait(0.06)
+				attempts = attempts + 1
+			end
+
+			if img and img.Parent and img.IsLoaded then
+				gifCache[tostring(assetId)] = tostring(id)
+				return
 			end
 		end
-		model:Destroy()
-		if found then gifCache[assetId] = found; return found end
-	end
-
-	gifCache[assetId] = assetId
-	return assetId
+	end)
 end
 
 --// ===================== DRAW MESSAGE =====================
 local function drawMessageDirect(uName, text, nColor, nStyle, nFx, mStyleFx, wB, wI, wU, wS, senderGame, msgId, replyData, reactions, isEdited)
 	uName, text = tostring(uName or "Anon"), tostring(text or "")
-	if blockedUsers[safeName(uName):lower()] then return end
+	if State.blockedUsers[safeName(uName):lower()] then return end
 
 	local frames = {}
-	for _, c in ipairs(CL:GetChildren()) do
+	for _, c in ipairs(UI.CL:GetChildren()) do
 		if c:IsA("Frame") then table.insert(frames, c) end
 	end
 	if #frames >= MAX_MESSAGES then frames[1]:Destroy() end
@@ -1478,9 +1591,9 @@ local function drawMessageDirect(uName, text, nColor, nStyle, nFx, mStyleFx, wB,
 	mf.Size = UDim2.new(1, -8, 0, frameHeight)
 	mf.Position = UDim2.new(0, 4, 0, 0)
 	mf.ClipsDescendants = false
-	mf.Parent = CL
+	mf.Parent = UI.CL
 	mf.ZIndex = 2
-	if msgId then messageFrames[msgId] = mf end
+	if msgId then State.messageFrames[msgId] = mf end
 	Instance.new("UICorner", mf).CornerRadius = UDim.new(0, 8)
 
 	local hover = Instance.new("Frame", mf)
@@ -1492,30 +1605,29 @@ local function drawMessageDirect(uName, text, nColor, nStyle, nFx, mStyleFx, wB,
 	Instance.new("UICorner", hover).CornerRadius = UDim.new(0, 8)
 
 	mf.MouseEnter:Connect(function()
-		TS:Create(hover, tweenFast, {BackgroundTransparency = 0.96}):Play()
+		Services.TS:Create(hover, Tween.Fast, {BackgroundTransparency = 0.96}):Play()
 	end)
 	mf.MouseLeave:Connect(function()
-		TS:Create(hover, tweenFast, {BackgroundTransparency = 1}):Play()
+		Services.TS:Create(hover, Tween.Fast, {BackgroundTransparency = 1}):Play()
 	end)
 
 	mf.InputBegan:Connect(function(input)
 		if isRightClick(input) and uName ~= "SYSTEM" then
-			selectedUser = safeName(uName)
-			local mouse = UIS:GetMouseLocation()
-			CMenu.Position = UDim2.new(0, clamp(mouse.X + 4, 0, 1200), 0, clamp(mouse.Y + 4, 0, 600))
-			CTitle.Text = "👤 " .. selectedUser
+			State.selectedUser = safeName(uName)
+			local mouse = Services.UIS:GetMouseLocation()
+			UI.CMenu.Position = UDim2.new(0, clamp(mouse.X + 4, 0, 1200), 0, clamp(mouse.Y + 4, 0, 600))
+			UI.CTitle.Text = "👤 " .. State.selectedUser
 
-			-- Hide/show items based on ownership
-			local isMine = selectedUser:lower() == LP.Name:lower()
-			btnEdit.Visible = isMine and msgId ~= nil
-			btnDelete.Visible = isMine and msgId ~= nil
-			btnPin.Visible = LP.Name == "egorv755"
-			btnBlock.Text = blockedUsers[selectedUser:lower()] and "✅ Разблокировать" or "🚫 Заблокировать"
+			local isMine = State.selectedUser:lower() == LP.Name:lower()
+			UI.btnEdit.Visible = isMine and msgId ~= nil
+			UI.btnDelete.Visible = isMine and msgId ~= nil
+			UI.btnPin.Visible = LP.Name == "egorv755"
+			UI.btnBlock.Text = State.blockedUsers[State.selectedUser:lower()] and "✅ Разблокировать" or "🚫 Заблокировать"
 
-			CMenu.Visible = true
-			CMenu:SetAttribute("msgId", msgId or "")
-			CMenu:SetAttribute("msgText", text)
-			CMenu:SetAttribute("msgFrame", mf)
+			UI.CMenu.Visible = true
+			UI.CMenu:SetAttribute("msgId", msgId or "")
+			UI.CMenu:SetAttribute("msgText", text)
+			UI.CMenu:SetAttribute("msgFrame", mf)
 		end
 	end)
 
@@ -1525,11 +1637,10 @@ local function drawMessageDirect(uName, text, nColor, nStyle, nFx, mStyleFx, wB,
 	cg.GroupTransparency = 0.15
 	cg.ZIndex = 2
 
-	TS:Create(cg, tweenSoft, {GroupTransparency = 0}):Play()
+	Services.TS:Create(cg, Tween.Soft, {GroupTransparency = 0}):Play()
 
 	local yOffset = 2
 
-	-- Reply preview
 	if replyData and replyData.name then
 		local replyLabel = Instance.new("TextLabel", cg)
 		replyLabel.Size = UDim2.new(1, -12, 0, 16)
@@ -1576,21 +1687,18 @@ local function drawMessageDirect(uName, text, nColor, nStyle, nFx, mStyleFx, wB,
 	applyNameEffect(nameLabel, mf, nFx, nColor)
 
 	if isGif then
-		local contentOffset = clamp(nameLabel.TextBounds.X + 8, 110, math.max(120, CL.AbsoluteSize.X - 140))
+		local contentOffset = clamp(nameLabel.TextBounds.X + 8, 110, math.max(120, UI.CL.AbsoluteSize.X - 140))
 		local img = Instance.new("ImageLabel", cg)
 		img.Position = UDim2.new(0, contentOffset, 0, yOffset + 2)
 		img.Size = UDim2.new(0, 84, 0, 84)
 		img.BackgroundTransparency = 1
 		img.Image = "rbxassetid://" .. isGif
-		img.ScaleType = Enum.ScaleType.Fit
+		img.ScaleType = Enum.ScaleType.Stretch
+		img.ImageColor3 = Color3.new(1, 1, 1)
 		img.ZIndex = 10
 
-		task.spawn(function()
-			local resolved = resolveImageId(isGif)
-			if img and img.Parent then img.Image = "rbxassetid://" .. resolved end
-		end)
+		applyWorkingImage(img, isGif)
 
-		-- Reactions for gif
 		if reactions then
 			local reactContainer = Instance.new("Frame", cg)
 			reactContainer.Size = UDim2.new(0, 200, 0, 20)
@@ -1642,7 +1750,7 @@ local function drawMessageDirect(uName, text, nColor, nStyle, nFx, mStyleFx, wB,
 
 	task.defer(function()
 		if not mf.Parent then return end
-		local contentOffset = clamp(nameLabel.TextBounds.X + 8, 95, math.max(120, math.floor(CL.AbsoluteSize.X * 0.55)))
+		local contentOffset = clamp(nameLabel.TextBounds.X + 8, 95, math.max(120, math.floor(UI.CL.AbsoluteSize.X * 0.55)))
 		textLabel.Position = UDim2.new(0, contentOffset, 0, yOffset)
 		textLabel.Size = UDim2.new(1, -contentOffset - 8, 0, 24)
 
@@ -1653,7 +1761,6 @@ local function drawMessageDirect(uName, text, nColor, nStyle, nFx, mStyleFx, wB,
 
 		applyTextEffect(textLabel, mf, mStyleFx, nColor, textLabel.Position)
 
-		-- Reactions
 		if reactions then
 			local reactContainer = Instance.new("Frame", cg)
 			reactContainer.Size = UDim2.new(1, -contentOffset - 8, 0, 20)
@@ -1677,34 +1784,34 @@ local function drawMessageDirect(uName, text, nColor, nStyle, nFx, mStyleFx, wB,
 	end)
 end
 
+--// ===================== CHANNELS & SETTINGS =====================
 local function drawMessage(uName, text, nColor, nStyle, nFx, mStyleFx, wB, wI, wU, wS, senderGame, chan, msgId, replyData, reactions, isEdited)
-	chan = chan or activeChannel
-	channelHistory[chan] = channelHistory[chan] or {}
+	chan = chan or State.activeChannel
+	State.channelHistory[chan] = State.channelHistory[chan] or {}
 
-	table.insert(channelHistory[chan], {
+	table.insert(State.channelHistory[chan], {
 		name = uName, text = text, color = nColor, bs = nStyle, fx = nFx, mf = mStyleFx,
 		b = wB, i = wI, u = wU, s = wS, gn = senderGame, id = msgId, reply = replyData,
 		reactions = reactions, edited = isEdited
 	})
-	if #channelHistory[chan] > MAX_MESSAGES then table.remove(channelHistory[chan], 1) end
+	if #State.channelHistory[chan] > MAX_MESSAGES then table.remove(State.channelHistory[chan], 1) end
 
-	if activeChannel == chan then
+	if State.activeChannel == chan then
 		drawMessageDirect(uName, text, nColor, nStyle, nFx, mStyleFx, wB, wI, wU, wS, senderGame, msgId, replyData, reactions, isEdited)
 	end
 end
 
---// ===================== CHANNELS =====================
 local function refreshChannelsList()
-	for _, b in pairs(channelButtons) do b:Destroy() end
-	channelButtons = {}
+	for _, b in pairs(State.channelButtons) do b:Destroy() end
+	State.channelButtons = {}
 
-	for _, ch in ipairs(channelsList) do
+	for _, ch in ipairs(State.channelsList) do
 		local dName = ch == "global" and "🌐 Глобал" or (ch == "local" and "🏠 Локал" or "💬 " .. ch)
-		local btn = Instance.new("TextButton", ChannelsPanel)
+		local btn = Instance.new("TextButton", UI.ChannelsPanel)
 		btn.Size = UDim2.new(1, -6, 0, 28)
-		btn.BackgroundColor3 = (activeChannel == ch) and col or Color3.fromRGB(24, 24, 34)
-		btn.BackgroundTransparency = (activeChannel == ch) and 0.2 or 0.5
-		btn.TextColor3 = (activeChannel == ch) and Color3.new(0, 0, 0) or Color3.fromRGB(220, 220, 230)
+		btn.BackgroundColor3 = (State.activeChannel == ch) and State.col or Color3.fromRGB(24, 24, 34)
+		btn.BackgroundTransparency = (State.activeChannel == ch) and 0.2 or 0.5
+		btn.TextColor3 = (State.activeChannel == ch) and Color3.new(0, 0, 0) or Color3.fromRGB(220, 220, 230)
 		btn.Font = Enum.Font.GothamBold
 		btn.TextSize = 10
 		btn.Text = dName
@@ -1712,10 +1819,10 @@ local function refreshChannelsList()
 		Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
 
 		btn.MouseButton1Click:Connect(function()
-			activeChannel = ch
+			State.activeChannel = ch
 			refreshChannelsList()
-			for _, c in ipairs(CL:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
-			local hist = channelHistory[ch] or {}
+			for _, c in ipairs(UI.CL:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
+			local hist = State.channelHistory[ch] or {}
 			for _, m in ipairs(hist) do
 				drawMessageDirect(m.name, m.text, m.color, m.bs, m.fx, m.mf, m.b, m.i, m.u, m.s, m.gn, m.id, m.reply, m.reactions, m.edited)
 			end
@@ -1729,93 +1836,93 @@ local function refreshChannelsList()
 							Url = API_URL .. "/channels/delete",
 							Method = "POST",
 							Headers = DEFAULT_HEADERS,
-							Body = HTTP:JSONEncode({name = LP.Name, channel = ch})
+							Body = Services.HTTP:JSONEncode({name = LP.Name, channel = ch})
 						})
 					end)
 				end
 			end)
 		end
-		table.insert(channelButtons, btn)
+		table.insert(State.channelButtons, btn)
 	end
 end
 refreshChannelsList()
 
-if LP.Name == "egorv755" then
-	local AddChanBtn = makeHeaderBtn("AddChan", "➕", UDim2.new(1, -248, 0, 6), UDim2.new(0, 28, 0, 28))
-	AddChanBtn.MouseButton1Click:Connect(function()
-		local prompt = Instance.new("Frame", MF)
-		prompt.Size = UDim2.new(0, 220, 0, 110)
-		prompt.Position = UDim2.new(0.5, -110, 0.5, -55)
-		prompt.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-		prompt.ZIndex = 150
-		Instance.new("UICorner", prompt).CornerRadius = UDim.new(0, 12)
-		Instance.new("UIStroke", prompt).Color = col
+local isAdmin = LP.Name == "egorv755"
+UI.AddChanBtn = makeHeaderBtn("AddChan", "➕", UDim2.new(1, -248, 0, 6), UDim2.new(0, 28, 0, 28))
+UI.AddChanBtn.MouseButton1Click:Connect(function()
+	local prompt = Instance.new("Frame", UI.MF)
+	prompt.Size = UDim2.new(0, 240, 0, 110)
+	prompt.Position = UDim2.new(0.5, -120, 0.5, -55)
+	prompt.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+	prompt.ZIndex = 150
+	Instance.new("UICorner", prompt).CornerRadius = UDim.new(0, 12)
+	Instance.new("UIStroke", prompt).Color = State.col
 
-		local txt = Instance.new("TextBox", prompt)
-		txt.Size = UDim2.new(0, 200, 0, 32)
-		txt.Position = UDim2.new(0, 10, 0, 15)
-		txt.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
-		txt.TextColor3 = Color3.new(1, 1, 1)
-		txt.PlaceholderText = "Имя канала..."
-		txt.ZIndex = 151
-		Instance.new("UICorner", txt).CornerRadius = UDim.new(0, 6)
+	local txt = Instance.new("TextBox", prompt)
+	txt.Size = UDim2.new(0, 220, 0, 32)
+	txt.Position = UDim2.new(0, 10, 0, 15)
+	txt.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
+	txt.TextColor3 = Color3.new(1, 1, 1)
+	txt.PlaceholderText = "Имя канала..."
+	txt.ZIndex = 151
+	Instance.new("UICorner", txt).CornerRadius = UDim.new(0, 6)
 
-		local okBtn = Instance.new("TextButton", prompt)
-		okBtn.Size = UDim2.new(0, 95, 0, 32)
-		okBtn.Position = UDim2.new(0, 10, 0, 62)
-		okBtn.BackgroundColor3 = col
-		okBtn.TextColor3 = Color3.new(0, 0, 0)
-		okBtn.Text = "Создать"
-		okBtn.Font = Enum.Font.GothamBold
-		okBtn.ZIndex = 151
-		Instance.new("UICorner", okBtn).CornerRadius = UDim.new(0, 6)
+	local okBtn = Instance.new("TextButton", prompt)
+	okBtn.Size = UDim2.new(0, 105, 0, 32)
+	okBtn.Position = UDim2.new(0, 10, 0, 62)
+	okBtn.BackgroundColor3 = State.col
+	okBtn.TextColor3 = Color3.new(0, 0, 0)
+	okBtn.Text = isAdmin and "Создать" or "Запросить"
+	okBtn.Font = Enum.Font.GothamBold
+	okBtn.ZIndex = 151
+	Instance.new("UICorner", okBtn).CornerRadius = UDim.new(0, 6)
 
-		local cancelBtn = Instance.new("TextButton", prompt)
-		cancelBtn.Size = UDim2.new(0, 95, 0, 32)
-		cancelBtn.Position = UDim2.new(0, 115, 0, 62)
-		cancelBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-		cancelBtn.TextColor3 = Color3.new(1, 1, 1)
-		cancelBtn.Text = "Отмена"
-		cancelBtn.ZIndex = 151
-		Instance.new("UICorner", cancelBtn).CornerRadius = UDim.new(0, 6)
+	local cancelBtn = Instance.new("TextButton", prompt)
+	cancelBtn.Size = UDim2.new(0, 105, 0, 32)
+	cancelBtn.Position = UDim2.new(0, 125, 0, 62)
+	cancelBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+	cancelBtn.TextColor3 = Color3.new(1, 1, 1)
+	cancelBtn.Text = "Отмена"
+	cancelBtn.ZIndex = 151
+	Instance.new("UICorner", cancelBtn).CornerRadius = UDim.new(0, 6)
 
-		cancelBtn.MouseButton1Click:Connect(function() prompt:Destroy() end)
-		okBtn.MouseButton1Click:Connect(function()
-			local name = txt.Text:gsub("%s", ""):lower()
-			if name ~= "" and req then
-				pcall(function()
-					req({
-						Url = API_URL .. "/channels/create",
-						Method = "POST",
-						Headers = DEFAULT_HEADERS,
-						Body = HTTP:JSONEncode({name = LP.Name, channel = name})
-					})
-				end)
-			end
-			prompt:Destroy()
-		end)
+	cancelBtn.MouseButton1Click:Connect(function() prompt:Destroy() end)
+	okBtn.MouseButton1Click:Connect(function()
+		local name = txt.Text:gsub("%s", ""):lower()
+		if name ~= "" and req then
+			pcall(function()
+				req({
+					Url = API_URL .. (isAdmin and "/channels/create" or "/channels/request"),
+					Method = "POST",
+					Headers = DEFAULT_HEADERS,
+					Body = Services.HTTP:JSONEncode({name = LP.Name, channel = name})
+				})
+			end)
+			showNotification(isAdmin and "Канал" or "Заявка", isAdmin and ("Канал #" .. name .. " создан") or ("Заявка на #" .. name .. " отправлена"), "➕")
+		end
+		prompt:Destroy()
 	end)
-end
+end)
 
 --// ===================== SETTINGS UI BUILD =====================
 local function updateAccent()
-	MBStroke.Color = col
-	MB.TextColor3 = col
-	HT.TextColor3 = col
-	SndBtn.TextColor3 = col
-	CL.ScrollBarImageColor3 = col
-	GF.ScrollBarImageColor3 = col
-	ChannelsPanel.ScrollBarImageColor3 = col
-	RS.ImageColor3 = col
-	IslandStroke.Color = col
-	IslandText.TextColor3 = col
-	CMenuStroke.Color = col
-	ReactionStroke.Color = col
-	ProfileStroke.Color = col
-	PinStroke.Color = Color3.fromRGB(255, 200, 80)
-	for _, btn in ipairs(settingsTabButtons) do
-		if btn.Name == "Tab" .. currentSettingsTab:gsub("^%l", string.upper) then
-			btn.BackgroundColor3 = col
+	UI.MBStroke.Color = State.col
+	UI.MB.TextColor3 = State.col
+	UI.HT.TextColor3 = State.col
+	UI.SndBtn.TextColor3 = State.col
+	UI.CL.ScrollBarImageColor3 = State.col
+	UI.GF.ScrollBarImageColor3 = State.col
+	UI.ChannelsPanel.ScrollBarImageColor3 = State.col
+	UI.RS.ImageColor3 = State.col
+	UI.IslandStroke.Color = State.col
+	UI.IslandText.TextColor3 = State.col
+	UI.CMenuStroke.Color = State.col
+	UI.ReactionStroke.Color = State.col
+	UI.ProfileStroke.Color = State.col
+	UI.PinStroke.Color = Color3.fromRGB(255, 200, 80)
+	for _, btn in ipairs(UI.settingsTabButtons) do
+		if btn.Name == "Tab" .. State.currentSettingsTab:gsub("^%l", string.upper) then
+			btn.BackgroundColor3 = State.col
 			btn.TextColor3 = Color3.new(0, 0, 0)
 		else
 			btn.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
@@ -1851,58 +1958,58 @@ local function makeSettingsButton(parent, pos, text, bg, callback)
 	local st = Instance.new("UIStroke", b)
 	st.Color = Color3.fromRGB(50, 50, 60)
 	st.Thickness = 1
-	b.MouseEnter:Connect(function() TS:Create(st, TweenInfo.new(0.15), {Color = col}):Play() end)
-	b.MouseLeave:Connect(function() TS:Create(st, TweenInfo.new(0.15), {Color = Color3.fromRGB(50, 50, 60)}):Play() end)
+	b.MouseEnter:Connect(function() Services.TS:Create(st, TweenInfo.new(0.15), {Color = State.col}):Play() end)
+	b.MouseLeave:Connect(function() Services.TS:Create(st, TweenInfo.new(0.15), {Color = Color3.fromRGB(50, 50, 60)}):Play() end)
 	if callback then b.MouseButton1Click:Connect(callback) end
 	return b, st
 end
 
 -- NICK TAB
-makeSettingsTitle(NickContent, "ЦВЕТ И ПАЛИТРА", 5)
-local CW = Instance.new("ImageLabel", NickContent)
-CW.Size = UDim2.new(0, 100, 0, 100)
-CW.Position = UDim2.new(0, 18, 0, 32)
-CW.BackgroundTransparency = 1
-CW.Image = "rbxassetid://15303439408"
-Instance.new("UICorner", CW).CornerRadius = UDim.new(1, 0)
+makeSettingsTitle(UI.NickContent, "ЦВЕТ И ПАЛИТРА", 5)
+UI.CW = Instance.new("ImageLabel", UI.NickContent)
+UI.CW.Size = UDim2.new(0, 100, 0, 100)
+UI.CW.Position = UDim2.new(0, 18, 0, 32)
+UI.CW.BackgroundTransparency = 1
+UI.CW.Image = "rbxassetid://15303439408"
+Instance.new("UICorner", UI.CW).CornerRadius = UDim.new(1, 0)
 
-local dot = Instance.new("Frame", CW)
-dot.Size = UDim2.new(0, 8, 0, 8)
-dot.AnchorPoint = Vector2.new(0.5, 0.5)
-dot.Position = UDim2.new(0.5, 0, 0.5, 0)
-dot.BackgroundColor3 = Color3.new(1, 1, 1)
-Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
+UI.ColorDot = Instance.new("Frame", UI.CW)
+UI.ColorDot.Size = UDim2.new(0, 8, 0, 8)
+UI.ColorDot.AnchorPoint = Vector2.new(0.5, 0.5)
+UI.ColorDot.Position = UDim2.new(0.5, 0, 0.5, 0)
+UI.ColorDot.BackgroundColor3 = Color3.new(1, 1, 1)
+Instance.new("UICorner", UI.ColorDot).CornerRadius = UDim.new(1, 0)
 
-local prv = Instance.new("Frame", NickContent)
-prv.Size = UDim2.new(0, 100, 0, 14)
-prv.Position = UDim2.new(0, 18, 0, 138)
-prv.BackgroundColor3 = col
-Instance.new("UICorner", prv).CornerRadius = UDim.new(0, 6)
+UI.ColorPreview = Instance.new("Frame", UI.NickContent)
+UI.ColorPreview.Size = UDim2.new(0, 100, 0, 14)
+UI.ColorPreview.Position = UDim2.new(0, 18, 0, 138)
+UI.ColorPreview.BackgroundColor3 = State.col
+Instance.new("UICorner", UI.ColorPreview).CornerRadius = UDim.new(0, 6)
 
 local wheelDown = false
 local function updateColorWheel(input)
-	local cx, cy = CW.AbsolutePosition.X + CW.AbsoluteSize.X/2, CW.AbsolutePosition.Y + CW.AbsoluteSize.Y/2
+	local cx, cy = UI.CW.AbsolutePosition.X + UI.CW.AbsoluteSize.X/2, UI.CW.AbsolutePosition.Y + UI.CW.AbsoluteSize.Y/2
 	local dx, dy = input.Position.X - cx, input.Position.Y - cy
 	local dist, maxR = math.sqrt(dx*dx + dy*dy), 50
 	if dist > maxR then dx, dy, dist = (dx/dist)*maxR, (dy/dist)*maxR, maxR end
-	dot.Position = UDim2.new(0, dx + maxR, 0, dy + maxR)
+	UI.ColorDot.Position = UDim2.new(0, dx + maxR, 0, dy + maxR)
 	local hue = math.atan(dy, dx) / (math.pi * 2)
 	if hue < 0 then hue = hue + 1 end
-	col = Color3.fromHSV(hue, clamp(dist/maxR, 0, 1), 1)
-	prv.BackgroundColor3 = col
+	State.col = Color3.fromHSV(hue, clamp(dist/maxR, 0, 1), 1)
+	UI.ColorPreview.BackgroundColor3 = State.col
 	updateAccent()
-	saveJSON("settings", {col = rgbString(col), fx = fx, msgFx = msgFx, bStyle = bStyle, winTrans = windowTransparency, bgTrans = bgTransparency, myStatus = myStatus})
+	saveJSON("settings", {col = rgbString(State.col), fx = State.fx, msgFx = State.msgFx, bStyle = State.bStyle, winTrans = State.windowTransparency, bgTrans = State.bgTransparency, myStatus = State.myStatus})
 end
 
-CW.InputBegan:Connect(function(input) if isPress(input) then wheelDown = true updateColorWheel(input) end end)
-UIS.InputChanged:Connect(function(input) if wheelDown and isMove(input) then updateColorWheel(input) end end)
-UIS.InputEnded:Connect(function(input) if isPress(input) then wheelDown = false end end)
+UI.CW.InputBegan:Connect(function(input) if isPress(input) then wheelDown = true updateColorWheel(input) end end)
+Services.UIS.InputChanged:Connect(function(input) if wheelDown and isMove(input) then updateColorWheel(input) end end)
+Services.UIS.InputEnded:Connect(function(input) if isPress(input) then wheelDown = false end end)
 
-local presetsFrame = Instance.new("Frame", NickContent)
-presetsFrame.Size = UDim2.new(0, 360, 0, 130)
-presetsFrame.Position = UDim2.new(0, 135, 0, 32)
-presetsFrame.BackgroundTransparency = 1
-local pg = Instance.new("UIGridLayout", presetsFrame)
+UI.PresetsFrame = Instance.new("Frame", UI.NickContent)
+UI.PresetsFrame.Size = UDim2.new(0, 360, 0, 130)
+UI.PresetsFrame.Position = UDim2.new(0, 135, 0, 32)
+UI.PresetsFrame.BackgroundTransparency = 1
+local pg = Instance.new("UIGridLayout", UI.PresetsFrame)
 pg.CellSize = UDim2.new(0, 82, 0, 28)
 pg.CellPadding = UDim2.new(0, 8, 0, 8)
 pg.SortOrder = Enum.SortOrder.LayoutOrder
@@ -1917,7 +2024,7 @@ local colorPresets = {
 }
 
 for _, p in ipairs(colorPresets) do
-	local b = Instance.new("TextButton", presetsFrame)
+	local b = Instance.new("TextButton", UI.PresetsFrame)
 	b.BackgroundColor3 = Color3.fromRGB(25, 25, 33)
 	b.Text = p[1]
 	b.TextColor3 = Color3.new(1, 1, 1)
@@ -1929,58 +2036,48 @@ for _, p in ipairs(colorPresets) do
 	st.Color = p[2]
 	st.Thickness = 1.2
 	b.MouseButton1Click:Connect(function()
-		col = p[2]
-		prv.BackgroundColor3 = col
+		State.col = p[2]
+		UI.ColorPreview.BackgroundColor3 = State.col
 		updateAccent()
-		saveJSON("settings", {col = rgbString(col), fx = fx, msgFx = msgFx, bStyle = bStyle, winTrans = windowTransparency, bgTrans = bgTransparency, myStatus = myStatus})
+		saveJSON("settings", {col = rgbString(State.col), fx = State.fx, msgFx = State.msgFx, bStyle = State.bStyle, winTrans = State.windowTransparency, bgTrans = State.bgTransparency, myStatus = State.myStatus})
 	end)
 end
 
-makeSettingsTitle(NickContent, "ОБРАМЛЕНИЕ НИКА", 180)
-local styleBtns = {
-	{makeSettingsButton(NickContent, UDim2.new(0, 18, 0, 208), "( Круглые )", Color3.fromRGB(30,30,40)), "round"},
-	{makeSettingsButton(NickContent, UDim2.new(0, 140, 0, 208), "[ Квадрат ]", Color3.fromRGB(30,30,40)), "sq"},
-	{makeSettingsButton(NickContent, UDim2.new(0, 262, 0, 208), "< Угловые >", Color3.fromRGB(30,30,40)), "ang"},
-	{makeSettingsButton(NickContent, UDim2.new(0, 384, 0, 208), "{ Фигурные }", Color3.fromRGB(30,30,40)), "curly"}
+makeSettingsTitle(UI.NickContent, "ОБРАМЛЕНИЕ НИКА", 180)
+UI.styleBtns = {
+	{makeSettingsButton(UI.NickContent, UDim2.new(0, 18, 0, 208), "( Круглые )", Color3.fromRGB(30,30,40)), "round"},
+	{makeSettingsButton(UI.NickContent, UDim2.new(0, 140, 0, 208), "[ Квадрат ]", Color3.fromRGB(30,30,40)), "sq"},
+	{makeSettingsButton(UI.NickContent, UDim2.new(0, 262, 0, 208), "< Угловые >", Color3.fromRGB(30,30,40)), "ang"},
+	{makeSettingsButton(UI.NickContent, UDim2.new(0, 384, 0, 208), "{ Фигурные }", Color3.fromRGB(30,30,40)), "curly"}
 }
-for _, e in ipairs(styleBtns) do
+for _, e in ipairs(UI.styleBtns) do
 	e[1].MouseButton1Click:Connect(function()
-		bStyle = (bStyle == e[2]) and "none" or e[2]
-		for _, b in ipairs(styleBtns) do
-			b[1].BackgroundColor3 = (bStyle == b[2]) and col or Color3.fromRGB(30, 30, 40)
+		State.bStyle = (State.bStyle == e[2]) and "none" or e[2]
+		for _, b in ipairs(UI.styleBtns) do
+			b[1].BackgroundColor3 = (State.bStyle == b[2]) and State.col or Color3.fromRGB(30, 30, 40)
 		end
-		saveJSON("settings", {col = rgbString(col), fx = fx, msgFx = msgFx, bStyle = bStyle, winTrans = windowTransparency, bgTrans = bgTransparency, myStatus = myStatus})
+		saveJSON("settings", {col = rgbString(State.col), fx = State.fx, msgFx = State.msgFx, bStyle = State.bStyle, winTrans = State.windowTransparency, bgTrans = State.bgTransparency, myStatus = State.myStatus})
 	end)
 end
 
 -- TEXT TAB
-makeSettingsTitle(TextContent, "ФОРМАТИРОВАНИЕ", 5)
-local fmtBtns = {}
-local function makeToggle(parent, pos, text, var, setter)
-	local b, st = makeSettingsButton(parent, pos, text, Color3.fromRGB(25, 25, 32))
-	st.Color = var and col or Color3.fromRGB(50, 50, 60)
-	b.MouseButton1Click:Connect(function()
-		setter(not var)
-		st.Color = var and Color3.fromRGB(50, 50, 60) or col
-	end)
-	return b, st
-end
+makeSettingsTitle(UI.TextContent, "ФОРМАТИРОВАНИЕ", 5)
 
-local t1, s1 = makeSettingsButton(TextContent, UDim2.new(0, 18, 0, 32), "Жирный", Color3.fromRGB(25,25,32))
-s1.Color = isB and col or Color3.fromRGB(50,50,60)
-t1.MouseButton1Click:Connect(function() isB = not isB s1.Color = isB and col or Color3.fromRGB(50,50,60) end)
+UI.t1, UI.s1 = makeSettingsButton(UI.TextContent, UDim2.new(0, 18, 0, 32), "Жирный", Color3.fromRGB(25,25,32))
+UI.s1.Color = State.isB and State.col or Color3.fromRGB(50,50,60)
+UI.t1.MouseButton1Click:Connect(function() State.isB = not State.isB UI.s1.Color = State.isB and State.col or Color3.fromRGB(50,50,60) end)
 
-local t2, s2 = makeSettingsButton(TextContent, UDim2.new(0, 140, 0, 32), "Курсив", Color3.fromRGB(25,25,32))
-s2.Color = isI and col or Color3.fromRGB(50,50,60)
-t2.MouseButton1Click:Connect(function() isI = not isI s2.Color = isI and col or Color3.fromRGB(50,50,60) end)
+UI.t2, UI.s2 = makeSettingsButton(UI.TextContent, UDim2.new(0, 140, 0, 32), "Курсив", Color3.fromRGB(25,25,32))
+UI.s2.Color = State.isI and State.col or Color3.fromRGB(50,50,60)
+UI.t2.MouseButton1Click:Connect(function() State.isI = not State.isI UI.s2.Color = State.isI and State.col or Color3.fromRGB(50,50,60) end)
 
-local t3, s3 = makeSettingsButton(TextContent, UDim2.new(0, 262, 0, 32), "Подчерк.", Color3.fromRGB(25,25,32))
-s3.Color = isU and col or Color3.fromRGB(50,50,60)
-t3.MouseButton1Click:Connect(function() isU = not isU s3.Color = isU and col or Color3.fromRGB(50,50,60) end)
+UI.t3, UI.s3 = makeSettingsButton(UI.TextContent, UDim2.new(0, 262, 0, 32), "Подчерк.", Color3.fromRGB(25,25,32))
+UI.s3.Color = State.isU and State.col or Color3.fromRGB(50,50,60)
+UI.t3.MouseButton1Click:Connect(function() State.isU = not State.isU UI.s3.Color = State.isU and State.col or Color3.fromRGB(50,50,60) end)
 
-local t4, s4 = makeSettingsButton(TextContent, UDim2.new(0, 384, 0, 32), "Зачеркн.", Color3.fromRGB(25,25,32))
-s4.Color = isS and col or Color3.fromRGB(50,50,60)
-t4.MouseButton1Click:Connect(function() isS = not isS s4.Color = isS and col or Color3.fromRGB(50,50,60) end)
+UI.t4, UI.s4 = makeSettingsButton(UI.TextContent, UDim2.new(0, 384, 0, 32), "Зачеркн.", Color3.fromRGB(25,25,32))
+UI.s4.Color = State.isS and State.col or Color3.fromRGB(50,50,60)
+UI.t4.MouseButton1Click:Connect(function() State.isS = not State.isS UI.s4.Color = State.isS and State.col or Color3.fromRGB(50,50,60) end)
 
 -- EFFECTS TAB
 local function buildEffectGrid(parent, items, selectedVar, callback, yStart)
@@ -1998,7 +2095,7 @@ local function buildEffectGrid(parent, items, selectedVar, callback, yStart)
 		local id, label = item[1], item[2]
 		local b = Instance.new("TextButton", grid)
 		b.Size = UDim2.new(0, 100, 0, 34)
-		b.BackgroundColor3 = (selectedVar == id) and col or Color3.fromRGB(35, 35, 45)
+		b.BackgroundColor3 = (selectedVar == id) and State.col or Color3.fromRGB(35, 35, 45)
 		b.Text = label
 		b.TextColor3 = (selectedVar == id) and Color3.new(0,0,0) or Color3.new(1,1,1)
 		b.Font = Enum.Font.GothamBold
@@ -2009,7 +2106,7 @@ local function buildEffectGrid(parent, items, selectedVar, callback, yStart)
 		b.MouseButton1Click:Connect(function()
 			selectedVar = callback(id)
 			for _, pair in ipairs(buttons) do
-				pair[1].BackgroundColor3 = (selectedVar == pair[2]) and col or Color3.fromRGB(35, 35, 45)
+				pair[1].BackgroundColor3 = (selectedVar == pair[2]) and State.col or Color3.fromRGB(35, 35, 45)
 				pair[1].TextColor3 = (selectedVar == pair[2]) and Color3.new(0,0,0) or Color3.new(1,1,1)
 			end
 		end)
@@ -2030,20 +2127,20 @@ local textEffects = {
 	{"shadow", "Тень"}, {"bounce", "Прыжок"}
 }
 
-buildEffectGrid(EffectsNickContent, nickEffects, fx, function(id)
-	fx = id
-	saveJSON("settings", {col = rgbString(col), fx = fx, msgFx = msgFx, bStyle = bStyle, winTrans = windowTransparency, bgTrans = bgTransparency, myStatus = myStatus})
-	return fx
+buildEffectGrid(UI.EffectsNickContent, nickEffects, State.fx, function(id)
+	State.fx = id
+	saveJSON("settings", {col = rgbString(State.col), fx = State.fx, msgFx = State.msgFx, bStyle = State.bStyle, winTrans = State.windowTransparency, bgTrans = State.bgTransparency, myStatus = State.myStatus})
+	return State.fx
 end, 4)
 
-buildEffectGrid(EffectsTextContent, textEffects, msgFx, function(id)
-	msgFx = id
-	saveJSON("settings", {col = rgbString(col), fx = fx, msgFx = msgFx, bStyle = bStyle, winTrans = windowTransparency, bgTrans = bgTransparency, myStatus = myStatus})
-	return msgFx
+buildEffectGrid(UI.EffectsTextContent, textEffects, State.msgFx, function(id)
+	State.msgFx = id
+	saveJSON("settings", {col = rgbString(State.col), fx = State.fx, msgFx = State.msgFx, bStyle = State.bStyle, winTrans = State.windowTransparency, bgTrans = State.bgTransparency, myStatus = State.myStatus})
+	return State.msgFx
 end, 4)
 
 -- CHAT TAB
-makeSettingsTitle(ChatContentSettings, "ПРОЗРАЧНОСТЬ", 5)
+makeSettingsTitle(UI.ChatContentSettings, "ПРОЗРАЧНОСТЬ", 5)
 
 local function makeSlider(parent, y, label, min, max, value, callback)
 	local l = Instance.new("TextLabel", parent)
@@ -2065,7 +2162,7 @@ local function makeSlider(parent, y, label, min, max, value, callback)
 
 	local fill = Instance.new("Frame", track)
 	fill.Size = UDim2.new((value - min)/(max - min), 0, 1, 0)
-	fill.BackgroundColor3 = col
+	fill.BackgroundColor3 = State.col
 	fill.BorderSizePixel = 0
 	Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
 
@@ -2077,7 +2174,7 @@ local function makeSlider(parent, y, label, min, max, value, callback)
 
 	local dragging = false
 	knob.InputBegan:Connect(function(input) if isPress(input) then dragging = true end end)
-	UIS.InputChanged:Connect(function(input)
+	Services.UIS.InputChanged:Connect(function(input)
 		if dragging and isMove(input) then
 			local pos = clamp((input.Position.X - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
 			local newVal = min + (max - min) * pos
@@ -2087,102 +2184,101 @@ local function makeSlider(parent, y, label, min, max, value, callback)
 			callback(newVal)
 		end
 	end)
-	UIS.InputEnded:Connect(function(input) if isPress(input) then dragging = false end end)
+	Services.UIS.InputEnded:Connect(function(input) if isPress(input) then dragging = false end end)
 end
 
-makeSlider(ChatContentSettings, 30, "Прозрачность окна", 0, 1, windowTransparency, function(v)
-	windowTransparency = v
-	MF.BackgroundTransparency = v
-	saveJSON("settings", {col = rgbString(col), fx = fx, msgFx = msgFx, bStyle = bStyle, winTrans = windowTransparency, bgTrans = bgTransparency, myStatus = myStatus})
+makeSlider(UI.ChatContentSettings, 30, "Прозрачность окна", 0, 1, State.windowTransparency, function(v)
+	State.windowTransparency = v
+	UI.MF.BackgroundTransparency = v
+	saveJSON("settings", {col = rgbString(State.col), fx = State.fx, msgFx = State.msgFx, bStyle = State.bStyle, winTrans = State.windowTransparency, bgTrans = State.bgTransparency, myStatus = State.myStatus})
 end)
 
-makeSlider(ChatContentSettings, 70, "Прозрачность фона", 0, 1, bgTransparency, function(v)
-	bgTransparency = v
-	ChatBG.ImageTransparency = v
-	saveJSON("settings", {col = rgbString(col), fx = fx, msgFx = msgFx, bStyle = bStyle, winTrans = windowTransparency, bgTrans = bgTransparency, myStatus = myStatus})
+makeSlider(UI.ChatContentSettings, 70, "Прозрачность фона", 0, 1, State.bgTransparency, function(v)
+	State.bgTransparency = v
+	UI.ChatBG.ImageTransparency = v
+	saveJSON("settings", {col = rgbString(State.col), fx = State.fx, msgFx = State.msgFx, bStyle = State.bStyle, winTrans = State.windowTransparency, bgTrans = State.bgTransparency, myStatus = State.myStatus})
 end)
 
-makeSlider(ChatContentSettings, 110, "Прозрачность содержимого", 0, 0.5, contentTransparency, function(v)
-	contentTransparency = v
-	ChatContent.GroupTransparency = v
-	saveJSON("settings", {col = rgbString(col), fx = fx, msgFx = msgFx, bStyle = bStyle, winTrans = windowTransparency, bgTrans = bgTransparency, myStatus = myStatus})
+makeSlider(UI.ChatContentSettings, 110, "Прозрачность содержимого", 0, 0.5, State.contentTransparency, function(v)
+	State.contentTransparency = v
+	UI.ChatContent.GroupTransparency = v
+	saveJSON("settings", {col = rgbString(State.col), fx = State.fx, msgFx = State.msgFx, bStyle = State.bStyle, winTrans = State.windowTransparency, bgTrans = State.bgTransparency, myStatus = State.myStatus})
 end)
 
-makeSettingsTitle(ChatContentSettings, "ФОН ЧАТА", 165)
-local bgInput = Instance.new("TextBox", ChatContentSettings)
-bgInput.Size = UDim2.new(0, 300, 0, 30)
-bgInput.Position = UDim2.new(0, 18, 0, 192)
-bgInput.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
-bgInput.TextColor3 = Color3.new(1, 1, 1)
-bgInput.PlaceholderText = "ID фона чата..."
-bgInput.Text = ""
-bgInput.Font = Enum.Font.Gotham
-bgInput.TextSize = 12
-Instance.new("UICorner", bgInput).CornerRadius = UDim.new(0, 8)
-Instance.new("UIStroke", bgInput).Color = Color3.fromRGB(50, 50, 60)
-bgInput.FocusLost:Connect(function()
-	local id = bgInput.Text:match("%d+")
-	ChatBG.Image = id and ("rbxassetid://" .. id) or ""
+makeSettingsTitle(UI.ChatContentSettings, "ФОН ЧАТА", 165)
+UI.bgInput = Instance.new("TextBox", UI.ChatContentSettings)
+UI.bgInput.Size = UDim2.new(0, 300, 0, 30)
+UI.bgInput.Position = UDim2.new(0, 18, 0, 192)
+UI.bgInput.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+UI.bgInput.TextColor3 = Color3.new(1, 1, 1)
+UI.bgInput.PlaceholderText = "ID фона чата..."
+UI.bgInput.Text = ""
+UI.bgInput.Font = Enum.Font.Gotham
+UI.bgInput.TextSize = 12
+Instance.new("UICorner", UI.bgInput).CornerRadius = UDim.new(0, 8)
+Instance.new("UIStroke", UI.bgInput).Color = Color3.fromRGB(50, 50, 60)
+UI.bgInput.FocusLost:Connect(function()
+	local id = UI.bgInput.Text:match("%d+")
+	UI.ChatBG.Image = id and ("rbxassetid://" .. id) or ""
 end)
 
-makeSettingsTitle(ChatContentSettings, "СТАТУС", 240)
+makeSettingsTitle(UI.ChatContentSettings, "СТАТУС", 240)
 local statusPresets = {
 	{"online", "🟢 Онлайн", Color3.fromRGB(0, 255, 100)},
 	{"away", "🌙 Отошёл", Color3.fromRGB(255, 200, 80)},
 	{"dnd", "🔴 Не беспокоить", Color3.fromRGB(255, 80, 80)},
 	{"invisible", "⚫ Невидимка", Color3.fromRGB(150, 150, 160)}
 }
-local statusBtns = {}
+UI.statusBtns = {}
 for i, s in ipairs(statusPresets) do
-	local b = makeSettingsButton(ChatContentSettings, UDim2.new(0, 18 + ((i-1)%2)*130, 0, 270 + math.floor((i-1)/2)*40), s[2], Color3.fromRGB(30,30,40))
-	table.insert(statusBtns, {b, s[1]})
+	local b = makeSettingsButton(UI.ChatContentSettings, UDim2.new(0, 18 + ((i-1)%2)*130, 0, 270 + math.floor((i-1)/2)*40), s[2], Color3.fromRGB(30,30,40))
+	table.insert(UI.statusBtns, {b, s[1]})
 	b.MouseButton1Click:Connect(function()
-		myStatus = s[1]
-		for _, pair in ipairs(statusBtns) do
-			pair[1].BackgroundColor3 = (myStatus == pair[2]) and s[3] or Color3.fromRGB(30, 30, 40)
+		State.myStatus = s[1]
+		for _, pair in ipairs(UI.statusBtns) do
+			pair[1].BackgroundColor3 = (State.myStatus == pair[2]) and s[3] or Color3.fromRGB(30, 30, 40)
 		end
-		-- Send status to server
 		pcall(function()
 			if req then
 				req({Url = API_URL .. "/status", Method = "POST", Headers = DEFAULT_HEADERS,
-					Body = HTTP:JSONEncode({name = LP.Name, status = myStatus, token = sessionToken or ""})})
+					Body = Services.HTTP:JSONEncode({name = LP.Name, status = State.myStatus, token = sessionToken or "", job_id = tostring(game.JobId or ""), place_id = tostring(game.PlaceId or "")})})
 			end
 		end)
-		saveJSON("settings", {col = rgbString(col), fx = fx, msgFx = msgFx, bStyle = bStyle, winTrans = windowTransparency, bgTrans = bgTransparency, myStatus = myStatus})
+		saveJSON("settings", {col = rgbString(State.col), fx = State.fx, msgFx = State.msgFx, bStyle = State.bStyle, winTrans = State.windowTransparency, bgTrans = State.bgTransparency, myStatus = State.myStatus})
 	end)
 end
 
 -- SYSTEM TAB
-makeSettingsTitle(SystemContent, "БЛОКИРОВКИ", 5)
-local BlockedListLabel = Instance.new("TextLabel", SystemContent)
-BlockedListLabel.Size = UDim2.new(1, -20, 0, 20)
-BlockedListLabel.Position = UDim2.new(0, 10, 0, 32)
-BlockedListLabel.BackgroundTransparency = 1
-BlockedListLabel.Text = "Заблокировано: 0"
-BlockedListLabel.TextColor3 = Color3.fromRGB(200, 200, 210)
-BlockedListLabel.Font = Enum.Font.GothamBold
-BlockedListLabel.TextSize = 12
-BlockedListLabel.TextXAlignment = Enum.TextXAlignment.Left
+makeSettingsTitle(UI.SystemContent, "БЛОКИРОВКИ", 5)
+UI.BlockedListLabel = Instance.new("TextLabel", UI.SystemContent)
+UI.BlockedListLabel.Size = UDim2.new(1, -20, 0, 20)
+UI.BlockedListLabel.Position = UDim2.new(0, 10, 0, 32)
+UI.BlockedListLabel.BackgroundTransparency = 1
+UI.BlockedListLabel.Text = "Заблокировано: 0"
+UI.BlockedListLabel.TextColor3 = Color3.fromRGB(200, 200, 210)
+UI.BlockedListLabel.Font = Enum.Font.GothamBold
+UI.BlockedListLabel.TextSize = 12
+UI.BlockedListLabel.TextXAlignment = Enum.TextXAlignment.Left
 
-local BlockedScroller = Instance.new("ScrollingFrame", SystemContent)
-BlockedScroller.Size = UDim2.new(1, -20, 0, 140)
-BlockedScroller.Position = UDim2.new(0, 10, 0, 58)
-BlockedScroller.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
-BlockedScroller.BackgroundTransparency = 0.5
-BlockedScroller.BorderSizePixel = 0
-BlockedScroller.ScrollBarThickness = 3
-BlockedScroller.ScrollBarImageColor3 = col
-Instance.new("UICorner", BlockedScroller).CornerRadius = UDim.new(0, 8)
-local BlockedLayout = Instance.new("UIListLayout", BlockedScroller)
-BlockedLayout.SortOrder = Enum.SortOrder.LayoutOrder
-BlockedLayout.Padding = UDim.new(0, 4)
+UI.BlockedScroller = Instance.new("ScrollingFrame", UI.SystemContent)
+UI.BlockedScroller.Size = UDim2.new(1, -20, 0, 140)
+UI.BlockedScroller.Position = UDim2.new(0, 10, 0, 58)
+UI.BlockedScroller.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+UI.BlockedScroller.BackgroundTransparency = 0.5
+UI.BlockedScroller.BorderSizePixel = 0
+UI.BlockedScroller.ScrollBarThickness = 3
+UI.BlockedScroller.ScrollBarImageColor3 = State.col
+Instance.new("UICorner", UI.BlockedScroller).CornerRadius = UDim.new(0, 8)
+UI.BlockedLayout = Instance.new("UIListLayout", UI.BlockedScroller)
+UI.BlockedLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UI.BlockedLayout.Padding = UDim.new(0, 4)
 
 local function refreshBlockedList()
-	for _, c in ipairs(BlockedScroller:GetChildren()) do if c:IsA("TextButton") or c:IsA("TextLabel") then c:Destroy() end end
+	for _, c in ipairs(UI.BlockedScroller:GetChildren()) do if c:IsA("TextButton") or c:IsA("TextLabel") then c:Destroy() end end
 	local count = 0
-	for name, _ in pairs(blockedUsers) do
+	for name, _ in pairs(State.blockedUsers) do
 		count = count + 1
-		local b = Instance.new("TextButton", BlockedScroller)
+		local b = Instance.new("TextButton", UI.BlockedScroller)
 		b.Size = UDim2.new(1, -10, 0, 26)
 		b.Position = UDim2.new(0, 5, 0, 0)
 		b.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
@@ -2193,22 +2289,128 @@ local function refreshBlockedList()
 		b.AutoButtonColor = false
 		Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
 		b.MouseButton1Click:Connect(function()
-			blockedUsers[name] = nil
+			State.blockedUsers[name] = nil
 			refreshBlockedList()
-			saveJSON("blocked", blockedUsers)
+			saveJSON("blocked", State.blockedUsers)
 		end)
 	end
-	BlockedListLabel.Text = "Заблокировано: " .. count
-	BlockedScroller.CanvasSize = UDim2.new(0, 0, 0, math.max(140, count * 30 + 10))
+	UI.BlockedListLabel.Text = "Заблокировано: " .. count
+	UI.BlockedScroller.CanvasSize = UDim2.new(0, 0, 0, math.max(140, count * 30 + 10))
 end
 refreshBlockedList()
 
-makeSettingsTitle(SystemContent, "ИНФО", 210)
-local InfoLabel = Instance.new("TextLabel", SystemContent)
-InfoLabel.Size = UDim2.new(1, -20, 0, 80)
-InfoLabel.Position = UDim2.new(0, 10, 0, 236)
+local InfoLabel
+if isAdmin then
+	makeSettingsTitle(UI.SystemContent, "ЗАЯВКИ КАНАЛОВ", 210)
+	UI.PendingChannelsLabel = Instance.new("TextLabel", UI.SystemContent)
+	UI.PendingChannelsLabel.Size = UDim2.new(1, -20, 0, 20)
+	UI.PendingChannelsLabel.Position = UDim2.new(0, 10, 0, 236)
+	UI.PendingChannelsLabel.BackgroundTransparency = 1
+	UI.PendingChannelsLabel.Text = "Ожидают одобрения: 0"
+	UI.PendingChannelsLabel.TextColor3 = Color3.fromRGB(200, 200, 210)
+	UI.PendingChannelsLabel.Font = Enum.Font.GothamBold
+	UI.PendingChannelsLabel.TextSize = 12
+	UI.PendingChannelsLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+	UI.PendingScroller = Instance.new("ScrollingFrame", UI.SystemContent)
+	UI.PendingScroller.Size = UDim2.new(1, -20, 0, 120)
+	UI.PendingScroller.Position = UDim2.new(0, 10, 0, 262)
+	UI.PendingScroller.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+	UI.PendingScroller.BackgroundTransparency = 0.5
+	UI.PendingScroller.BorderSizePixel = 0
+	UI.PendingScroller.ScrollBarThickness = 3
+	UI.PendingScroller.ScrollBarImageColor3 = State.col
+	Instance.new("UICorner", UI.PendingScroller).CornerRadius = UDim.new(0, 8)
+	UI.PendingLayout = Instance.new("UIListLayout", UI.PendingScroller)
+	UI.PendingLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	UI.PendingLayout.Padding = UDim.new(0, 4)
+
+	local function refreshPendingChannels(list)
+		for _, c in ipairs(UI.PendingScroller:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
+		UI.PendingChannelsLabel.Text = "Ожидают одобрения: " .. #list
+		for _, ch in ipairs(list) do
+			local f = Instance.new("Frame", UI.PendingScroller)
+			f.Size = UDim2.new(1, -10, 0, 30)
+			f.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+			f.BorderSizePixel = 0
+			Instance.new("UICorner", f).CornerRadius = UDim.new(0, 6)
+
+			local lbl = Instance.new("TextLabel", f)
+			lbl.Size = UDim2.new(1, -110, 1, 0)
+			lbl.Position = UDim2.new(0, 8, 0, 0)
+			lbl.BackgroundTransparency = 1
+			lbl.Text = "#" .. ch
+			lbl.TextColor3 = Color3.fromRGB(245, 245, 255)
+			lbl.Font = Enum.Font.GothamBold
+			lbl.TextSize = 11
+			lbl.TextXAlignment = Enum.TextXAlignment.Left
+
+			local approve = Instance.new("TextButton", f)
+			approve.Size = UDim2.new(0, 44, 0, 22)
+			approve.Position = UDim2.new(1, -96, 0, 4)
+			approve.BackgroundColor3 = Color3.fromRGB(0, 180, 100)
+			approve.Text = "✓"
+			approve.TextColor3 = Color3.new(1, 1, 1)
+			approve.Font = Enum.Font.GothamBold
+			approve.TextSize = 14
+			Instance.new("UICorner", approve).CornerRadius = UDim.new(0, 5)
+			approve.MouseButton1Click:Connect(function()
+				pcall(function()
+					if req then
+						req({Url = API_URL .. "/channels/approve", Method = "POST", Headers = DEFAULT_HEADERS,
+							Body = Services.HTTP:JSONEncode({name = LP.Name, channel = ch})})
+					end
+				end)
+			end)
+
+			local decline = Instance.new("TextButton", f)
+			decline.Size = UDim2.new(0, 44, 0, 22)
+			decline.Position = UDim2.new(1, -48, 0, 4)
+			decline.BackgroundColor3 = Color3.fromRGB(180, 60, 60)
+			decline.Text = "✕"
+			decline.TextColor3 = Color3.new(1, 1, 1)
+			decline.Font = Enum.Font.GothamBold
+			decline.TextSize = 14
+			Instance.new("UICorner", decline).CornerRadius = UDim.new(0, 5)
+			decline.MouseButton1Click:Connect(function()
+				pcall(function()
+					if req then
+						req({Url = API_URL .. "/channels/delete", Method = "POST", Headers = DEFAULT_HEADERS,
+							Body = Services.HTTP:JSONEncode({name = LP.Name, channel = ch})})
+					end
+				end)
+			end)
+		end
+		UI.PendingScroller.CanvasSize = UDim2.new(0, 0, 0, math.max(120, #list * 34 + 10))
+	end
+
+	task.spawn(function()
+		while UI.SG.Parent do
+			pcall(function()
+				if req then
+					local ok, res = pcall(req, {Url = API_URL .. "/channels/pending?name=" .. LP.Name, Method = "GET", Headers = GET_HEADERS})
+					if ok and res and res.StatusCode == 200 then
+						local ok2, list = pcall(function() return Services.HTTP:JSONDecode(res.Body) end)
+						if ok2 and type(list) == "table" then refreshPendingChannels(list) end
+					end
+				end
+			end)
+			task.wait(5)
+		end
+	end)
+
+	makeSettingsTitle(UI.SystemContent, "ИНФО", 390)
+	InfoLabel = Instance.new("TextLabel", UI.SystemContent)
+	InfoLabel.Size = UDim2.new(1, -20, 0, 80)
+	InfoLabel.Position = UDim2.new(0, 10, 0, 416)
+else
+	makeSettingsTitle(UI.SystemContent, "ИНФО", 210)
+	InfoLabel = Instance.new("TextLabel", UI.SystemContent)
+	InfoLabel.Size = UDim2.new(1, -20, 0, 80)
+	InfoLabel.Position = UDim2.new(0, 10, 0, 236)
+end
 InfoLabel.BackgroundTransparency = 1
-InfoLabel.Text = "Neon Chat v13\nПКМ по сообщению — меню\nПравый Shift — скрыть/показать\n\nНекоторые функции требуют поддержки сервера."
+InfoLabel.Text = "Neon Chat v14\nПКМ по сообщению — меню\nПравый Shift — скрыть/показать\n\nЛС: 1 сообщение до приема заявки."
 InfoLabel.TextColor3 = Color3.fromRGB(180, 180, 190)
 InfoLabel.Font = Enum.Font.Gotham
 InfoLabel.TextSize = 11
@@ -2217,53 +2419,53 @@ InfoLabel.TextXAlignment = Enum.TextXAlignment.Left
 
 -- Settings tab switching
 local function switchSettingsTab(tab)
-	currentSettingsTab = tab
+	State.currentSettingsTab = tab
 	updateAccent()
 
 	local function showFrame(f, direction)
 		f.Visible = true
 		f.Position = UDim2.new(direction, 0, 0, 0)
-		TS:Create(f, tweenSmooth, {Position = UDim2.new(0, 0, 0, 0)}):Play()
+		Services.TS:Create(f, Tween.Smooth, {Position = UDim2.new(0, 0, 0, 0)}):Play()
 	end
 
-	NickContent.Visible = false
-	TextContent.Visible = false
-	EffectsContent.Visible = false
-	ChatContentSettings.Visible = false
-	SystemContent.Visible = false
+	UI.NickContent.Visible = false
+	UI.TextContent.Visible = false
+	UI.EffectsContent.Visible = false
+	UI.ChatContentSettings.Visible = false
+	UI.SystemContent.Visible = false
 
-	if tab == "nick" then showFrame(NickContent, 0.15)
-	elseif tab == "text" then showFrame(TextContent, 0.15)
-	elseif tab == "effects" then showFrame(EffectsContent, 0.15)
-	elseif tab == "chat" then showFrame(ChatContentSettings, 0.15)
-	elseif tab == "system" then showFrame(SystemContent, 0.15) end
+	if tab == "nick" then showFrame(UI.NickContent, 0.15)
+	elseif tab == "text" then showFrame(UI.TextContent, 0.15)
+	elseif tab == "effects" then showFrame(UI.EffectsContent, 0.15)
+	elseif tab == "chat" then showFrame(UI.ChatContentSettings, 0.15)
+	elseif tab == "system" then showFrame(UI.SystemContent, 0.15) end
 end
 
-TabNick.MouseButton1Click:Connect(function() switchSettingsTab("nick") end)
-TabText.MouseButton1Click:Connect(function() switchSettingsTab("text") end)
-TabEffects.MouseButton1Click:Connect(function() switchSettingsTab("effects") end)
-TabChat.MouseButton1Click:Connect(function() switchSettingsTab("chat") end)
-TabSystem.MouseButton1Click:Connect(function() switchSettingsTab("system") end)
+UI.TabNick.MouseButton1Click:Connect(function() switchSettingsTab("nick") end)
+UI.TabText.MouseButton1Click:Connect(function() switchSettingsTab("text") end)
+UI.TabEffects.MouseButton1Click:Connect(function() switchSettingsTab("effects") end)
+UI.TabChat.MouseButton1Click:Connect(function() switchSettingsTab("chat") end)
+UI.TabSystem.MouseButton1Click:Connect(function() switchSettingsTab("system") end)
 
 -- Effects sub-tab switching
 local currentEffectsSub = "nick"
 local function switchEffectsSub(sub)
 	currentEffectsSub = sub
-	SubNickFx.BackgroundColor3 = sub == "nick" and col or Color3.fromRGB(35, 35, 45)
-	SubNickFx.TextColor3 = sub == "nick" and Color3.new(0,0,0) or Color3.fromRGB(200,200,210)
-	SubTextFx.BackgroundColor3 = sub == "text" and col or Color3.fromRGB(35, 35, 45)
-	SubTextFx.TextColor3 = sub == "text" and Color3.new(0,0,0) or Color3.fromRGB(200,200,210)
+	UI.SubNickFx.BackgroundColor3 = sub == "nick" and State.col or Color3.fromRGB(35, 35, 45)
+	UI.SubNickFx.TextColor3 = sub == "nick" and Color3.new(0,0,0) or Color3.fromRGB(200,200,210)
+	UI.SubTextFx.BackgroundColor3 = sub == "text" and State.col or Color3.fromRGB(35, 35, 45)
+	UI.SubTextFx.TextColor3 = sub == "text" and Color3.new(0,0,0) or Color3.fromRGB(200,200,210)
 
 	if sub == "nick" then
-		TS:Create(EffectsNickContent, tweenSmooth, {Position = UDim2.new(0, 0, 0, 36)}):Play()
-		TS:Create(EffectsTextContent, tweenSmooth, {Position = UDim2.new(1, 0, 0, 36)}):Play()
+		Services.TS:Create(UI.EffectsNickContent, Tween.Smooth, {Position = UDim2.new(0, 0, 0, 36)}):Play()
+		Services.TS:Create(UI.EffectsTextContent, Tween.Smooth, {Position = UDim2.new(1, 0, 0, 36)}):Play()
 	else
-		TS:Create(EffectsNickContent, tweenSmooth, {Position = UDim2.new(-1, 0, 0, 36)}):Play()
-		TS:Create(EffectsTextContent, tweenSmooth, {Position = UDim2.new(0, 0, 0, 36)}):Play()
+		Services.TS:Create(UI.EffectsNickContent, Tween.Smooth, {Position = UDim2.new(-1, 0, 0, 36)}):Play()
+		Services.TS:Create(UI.EffectsTextContent, Tween.Smooth, {Position = UDim2.new(0, 0, 0, 36)}):Play()
 	end
 end
-SubNickFx.MouseButton1Click:Connect(function() switchEffectsSub("nick") end)
-SubTextFx.MouseButton1Click:Connect(function() switchEffectsSub("text") end)
+UI.SubNickFx.MouseButton1Click:Connect(function() switchEffectsSub("nick") end)
+UI.SubTextFx.MouseButton1Click:Connect(function() switchEffectsSub("text") end)
 
 switchSettingsTab("nick")
 switchEffectsSub("nick")
@@ -2271,19 +2473,19 @@ switchEffectsSub("nick")
 --// ===================== PM INTERACTION =====================
 local function ensureDM(name)
 	name = safeName(name)
-	dmHistory[name] = dmHistory[name] or {}
-	dmUnread[name] = dmUnread[name] or 0
+	State.dmHistory[name] = State.dmHistory[name] or {}
+	State.dmUnread[name] = State.dmUnread[name] or 0
 	return name
 end
 
 local function clearPMMessages()
-	for _, c in ipairs(PMMessages:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
+	for _, c in ipairs(UI.PMMessages:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
 end
 
 local function drawPMBubble(sender, payload, color, isMine)
 	if type(color) == "string" then color = parseColor(color) end
 
-	local wrap = Instance.new("Frame", PMMessages)
+	local wrap = Instance.new("Frame", UI.PMMessages)
 	wrap.BackgroundTransparency = 1
 	wrap.Size = UDim2.new(1, 0, 0, 34)
 
@@ -2313,14 +2515,12 @@ local function drawPMBubble(sender, payload, color, isMine)
 		img.Position = UDim2.new(0, 8, 0, 21)
 		img.BackgroundTransparency = 1
 		img.Image = "rbxassetid://" .. gifId
-		img.ScaleType = Enum.ScaleType.Fit
+		img.ScaleType = Enum.ScaleType.Stretch
+		img.ImageColor3 = Color3.new(1, 1, 1)
 		bubble.Size = UDim2.new(0.42, 0, 0, 124)
 		wrap.Size = UDim2.new(1, 0, 0, 126)
 
-		task.spawn(function()
-			local resolved = resolveImageId(gifId)
-			if img and img.Parent then img.Image = "rbxassetid://" .. resolved end
-		end)
+		applyWorkingImage(img, gifId)
 	else
 		local txt = Instance.new("TextLabel", bubble)
 		txt.Size = UDim2.new(1, -14, 0, 18)
@@ -2344,52 +2544,94 @@ local function drawPMBubble(sender, payload, color, isMine)
 
 	bubble.Position = bubble.Position + UDim2.new(0, isMine and 30 or -30, 0, 0)
 	bubble.BackgroundTransparency = 1
-	TS:Create(bubble, tweenSoft, {BackgroundTransparency = 0.05, Position = isMine and UDim2.new(1, -6, 0, 0) or UDim2.new(0, 6, 0, 0)}):Play()
+	Services.TS:Create(bubble, Tween.Soft, {BackgroundTransparency = 0.05, Position = isMine and UDim2.new(1, -6, 0, 0) or UDim2.new(0, 6, 0, 0)}):Play()
 end
 
 local function refreshDMList()
-	for _, c in ipairs(PMList:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
+	for _, c in ipairs(UI.PMList:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
 	local names = {}
-	for name in pairs(dmHistory) do table.insert(names, name) end
+	for name in pairs(State.dmHistory) do table.insert(names, name) end
 	table.sort(names)
 	for _, name in ipairs(names) do
-		local b = Instance.new("TextButton", PMList)
+		local b = Instance.new("TextButton", UI.PMList)
 		b.Size = UDim2.new(1, -10, 0, 34)
-		b.BackgroundColor3 = (activeDM == name) and col or Color3.fromRGB(28, 28, 38)
-		b.BackgroundTransparency = (activeDM == name) and 0.05 or 0.2
-		b.TextColor3 = (activeDM == name) and Color3.new(0, 0, 0) or Color3.new(1, 1, 1)
+		b.BackgroundColor3 = (State.activeDM == name) and State.col or Color3.fromRGB(28, 28, 38)
+		b.BackgroundTransparency = (State.activeDM == name) and 0.05 or 0.2
+		b.TextColor3 = (State.activeDM == name) and Color3.new(0, 0, 0) or Color3.new(1, 1, 1)
 		b.Font = Enum.Font.GothamBold
 		b.TextSize = 12
 		b.TextXAlignment = Enum.TextXAlignment.Left
-		b.Text = "   " .. name .. ((dmUnread[name] and dmUnread[name] > 0) and ("  (" .. dmUnread[name] .. ")") or "")
+		b.Text = "   " .. name .. ((State.dmUnread[name] and State.dmUnread[name] > 0) and ("  (" .. State.dmUnread[name] .. ")") or "")
 		b.ZIndex = 24
 		b.AutoButtonColor = false
 		Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
 
 		b.MouseButton1Click:Connect(function()
-			activeDM, dmUnread[name] = name, 0
+			State.activeDM, State.dmUnread[name] = name, 0
 			updateBadge()
 			refreshDMList()
 			clearPMMessages()
-			PMHeader.Text = "ЛС с " .. name
-			for _, msg in ipairs(dmHistory[name] or {}) do
-				drawPMBubble(msg.from, msg.text, msg.color or col, msg.from == LP.Name)
+			UI.PMHeader.Text = "ЛС с " .. name
+			for _, msg in ipairs(State.dmHistory[name] or {}) do
+				drawPMBubble(msg.from, msg.text, msg.color or State.col, msg.from == LP.Name)
 			end
 		end)
 	end
 end
 
-local function openDMWith(name)
+local function updatePMInfo(name)
+	UI.PMInfoPanel.Visible = State.activeDM ~= nil
+	if not State.activeDM then return end
+	UI.PMInfoGame.Text = "🎮 Игра: загрузка..."
+	UI.PMInfoPlace.Text = "🆔 Place: -"
+	pcall(function()
+		if req then
+			local ok, res = pcall(req, {Url = API_URL .. "/status/" .. name, Method = "GET", Headers = GET_HEADERS})
+			if ok and res and res.StatusCode == 200 then
+				local ok2, data = pcall(function() return Services.HTTP:JSONDecode(res.Body) end)
+				if ok2 and data then
+					UI.PMInfoGame.Text = "🎮 Игра: " .. (data.game or "неизвестно")
+					UI.PMInfoPlace.Text = "🆔 Place: " .. (data.place_id or "-")
+					UI.PMJoinBtn:SetAttribute("place_id", data.place_id or "")
+					UI.PMJoinBtn:SetAttribute("job_id", data.job_id or "")
+				end
+			end
+		end
+	end)
+end
+
+local function openDMWith(name, skipCheck)
 	name = ensureDM(name)
-	activeDM, dmUnread[name] = name, 0
+	State.activeDM, State.dmUnread[name] = name, 0
 	updateBadge()
 	refreshDMList()
 	clearPMMessages()
-	PMHeader.Text = "ЛС с " .. name
-	for _, msg in ipairs(dmHistory[name] or {}) do
-		drawPMBubble(msg.from, msg.text, msg.color or col, msg.from == LP.Name)
+	UI.PMHeader.Text = "ЛС с " .. name
+	for _, msg in ipairs(State.dmHistory[name] or {}) do
+		drawPMBubble(msg.from, msg.text, msg.color or State.col, msg.from == LP.Name)
 	end
+
+	UI.PMMessages.Position = UDim2.new(0, 200, 0, 148)
+	UI.PMMessages.Size = UDim2.new(1, -210, 1, -211)
+	updatePMInfo(name)
 	openIsland()
+
+	if not skipCheck then
+		pcall(function()
+			if req then
+				local ok, res = pcall(req, {Url = API_URL .. "/pm/status?a=" .. LP.Name .. "&b=" .. name, Method = "GET", Headers = GET_HEADERS})
+				if ok and res and res.StatusCode == 200 then
+					local ok2, data = pcall(function() return Services.HTTP:JSONDecode(res.Body) end)
+					if ok2 and data then
+						State.pmRequests[name] = data.status
+						if data.status ~= "accepted" then
+							showNotification("ЛС", "Заявка на переписку ещё не принята. Можно отправить только 1 сообщение.", "📥")
+						end
+					end
+				end
+			end
+		end)
+	end
 end
 
 local function handleIncoming(m)
@@ -2400,224 +2642,372 @@ local function handleIncoming(m)
 	local sender = safeName(m.name)
 	local senderColor = rgbString(parseColor(m.color))
 	ensureDM(sender)
-	table.insert(dmHistory[sender], {from = sender, text = payload, color = senderColor})
-	if #dmHistory[sender] > MAX_PM_MESSAGES then table.remove(dmHistory[sender], 1) end
-	saveJSON("dms", dmHistory)
+	table.insert(State.dmHistory[sender], {from = sender, text = payload, color = senderColor})
+	if #State.dmHistory[sender] > MAX_PM_MESSAGES then table.remove(State.dmHistory[sender], 1) end
+	saveJSON("dms", State.dmHistory)
 
-	if activeDM == sender then
+	if State.activeDM == sender then
 		drawPMBubble(sender, payload, senderColor, false)
 	else
-		dmUnread[sender] = (dmUnread[sender] or 0) + 1
+		State.dmUnread[sender] = (State.dmUnread[sender] or 0) + 1
 		updateBadge()
 		showNotification("Новое ЛС", "От " .. sender, "💬")
 	end
 	refreshDMList()
 end
 
+--// ===================== PM REQUESTS SYSTEM =====================
+State.pmRequests = {}
+State.shownRequestNotifications = {}
+
+local function respondPMRequest(sender, action)
+	pcall(function()
+		if req then
+			req({
+				Url = API_URL .. "/pm/respond",
+				Method = "POST",
+				Headers = DEFAULT_HEADERS,
+				Body = Services.HTTP:JSONEncode({recipient = LP.Name, sender = sender, action = action})
+			})
+		end
+	end)
+	State.pmRequests[sender] = action == "accept" and "accepted" or "declined"
+	refreshPMRequestsUI()
+	if action == "accept" then
+		openDMWith(sender)
+		showNotification("ЛС", "Заявка от " .. sender .. " принята", "✅")
+	end
+end
+
+local function refreshPMRequestsUI()
+	for _, c in ipairs(UI.PMRequestsList:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
+	local count = 0
+	for sender, status in pairs(State.pmRequests) do
+		if status == "pending" then
+			count = count + 1
+			local f = Instance.new("Frame", UI.PMRequestsList)
+			f.Size = UDim2.new(1, 0, 0, 54)
+			f.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+			f.BackgroundTransparency = 0.3
+			f.BorderSizePixel = 0
+			f.ZIndex = 37
+			Instance.new("UICorner", f).CornerRadius = UDim.new(0, 8)
+
+			local nameLabel = Instance.new("TextLabel", f)
+			nameLabel.Size = UDim2.new(1, -10, 0, 20)
+			nameLabel.Position = UDim2.new(0, 5, 0, 4)
+			nameLabel.BackgroundTransparency = 1
+			nameLabel.Text = sender
+			nameLabel.TextColor3 = Color3.fromRGB(245, 245, 255)
+			nameLabel.Font = Enum.Font.GothamBold
+			nameLabel.TextSize = 12
+			nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+			nameLabel.ZIndex = 38
+
+			local acceptBtn = Instance.new("TextButton", f)
+			acceptBtn.Size = UDim2.new(0, 70, 0, 22)
+			acceptBtn.Position = UDim2.new(0, 5, 0, 28)
+			acceptBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 100)
+			acceptBtn.Text = "Принять"
+			acceptBtn.TextColor3 = Color3.new(1, 1, 1)
+			acceptBtn.Font = Enum.Font.GothamBold
+			acceptBtn.TextSize = 10
+			acceptBtn.ZIndex = 38
+			Instance.new("UICorner", acceptBtn).CornerRadius = UDim.new(0, 6)
+			acceptBtn.MouseButton1Click:Connect(function() respondPMRequest(sender, "accept") end)
+
+			local declineBtn = Instance.new("TextButton", f)
+			declineBtn.Size = UDim2.new(0, 70, 0, 22)
+			declineBtn.Position = UDim2.new(0, 82, 0, 28)
+			declineBtn.BackgroundColor3 = Color3.fromRGB(180, 60, 60)
+			declineBtn.Text = "Отклонить"
+			declineBtn.TextColor3 = Color3.new(1, 1, 1)
+			declineBtn.Font = Enum.Font.GothamBold
+			declineBtn.TextSize = 10
+			declineBtn.ZIndex = 38
+			Instance.new("UICorner", declineBtn).CornerRadius = UDim.new(0, 6)
+			declineBtn.MouseButton1Click:Connect(function() respondPMRequest(sender, "decline") end)
+		end
+	end
+	if count > 0 then
+		UI.PMRequestsBadge.Text = tostring(count)
+		UI.PMRequestsBadge.Visible = true
+		Services.TS:Create(UI.PMRequestsFrame, Tween.Fast, {Size = UDim2.new(0, 260, 0, clamp(count * 62 + 40, 80, 320))}):Play()
+	else
+		UI.PMRequestsBadge.Visible = false
+		UI.PMRequestsFrame.Visible = false
+	end
+end
+
+UI.PMRequestsBtn.MouseButton1Click:Connect(function()
+	UI.PMRequestsFrame.Visible = not UI.PMRequestsFrame.Visible
+	if UI.PMRequestsFrame.Visible then
+		refreshPMRequestsUI()
+	end
+end)
+
+UI.PMJoinBtn.MouseButton1Click:Connect(function()
+	local placeId = UI.PMJoinBtn:GetAttribute("place_id")
+	local jobId = UI.PMJoinBtn:GetAttribute("job_id")
+	if placeId and placeId ~= "" and jobId and jobId ~= "" then
+		pcall(function()
+			local TSvc = game:GetService("TeleportService")
+			TSvc:TeleportToPlaceInstance(tonumber(placeId), jobId, LP)
+		end)
+	else
+		showNotification("Join", "Нет данных о сервере игрока", "⚠️")
+	end
+end)
+
+local function pollPMRequests()
+	while UI.SG.Parent do
+		pcall(function()
+			if req then
+				local ok, res = pcall(req, {Url = API_URL .. "/pm/requests?name=" .. LP.Name .. "&direction=incoming", Method = "GET", Headers = GET_HEADERS})
+				if ok and res and res.StatusCode == 200 then
+					local ok2, list = pcall(function() return Services.HTTP:JSONDecode(res.Body) end)
+					if ok2 and type(list) == "table" then
+						for _, r in ipairs(list) do
+							local sender = safeName(r.from)
+							if State.pmRequests[sender] ~= "pending" then
+								State.pmRequests[sender] = "pending"
+								if not State.shownRequestNotifications[sender] then
+									State.shownRequestNotifications[sender] = true
+									showNotification("Заявка на ЛС", sender .. " хочет написать", "📥")
+								end
+							end
+						end
+						refreshPMRequestsUI()
+					end
+				end
+			end
+		end)
+		task.wait(5)
+	end
+end
+task.spawn(pollPMRequests)
+
 --// ===================== CONTEXT MENU ACTIONS =====================
-btnProfile.MouseButton1Click:Connect(function()
-	CMenu.Visible = false
-	local name = selectedUser
+UI.btnProfile.MouseButton1Click:Connect(function()
+	UI.CMenu.Visible = false
+	local name = State.selectedUser
 	local userId = nil
 	pcall(function()
-		for _, p in ipairs(PL:GetPlayers()) do
+		for _, p in ipairs(Services.PL:GetPlayers()) do
 			if p.Name:lower() == name:lower() then userId = p.UserId; break end
 		end
 	end)
 
-	ProfileName.Text = name
-	ProfileStatus.Text = "Статус: загрузка..."
-	ProfileGame.Text = "🎮 Игра: неизвестно"
-	ProfileVoice.Text = "🎤 Голосовой чат: проверка..."
-	ProfileAvatar.Image = userId and ("rbxthumb://type=AvatarHeadShot&id=" .. userId .. "&w=150&h=150") or ""
+	UI.ProfileName.Text = name
+	UI.ProfileStatus.Text = "Статус: загрузка..."
+	UI.ProfileGame.Text = "🎮 Игра: неизвестно"
+	UI.ProfileVoice.Text = "🎤 Голосовой чат: проверка..."
+	UI.ProfileAvatar.Image = userId and ("rbxthumb://type=AvatarHeadShot&id=" .. userId .. "&w=150&h=150") or ""
 
-	-- Request status from server
 	pcall(function()
 		if req then
 			local ok, res = pcall(req, {Url = API_URL .. "/status/" .. name, Method = "GET", Headers = GET_HEADERS})
 			if ok and res and res.StatusCode == 200 then
-				local ok2, data = pcall(HTTP.JSONDecode, HTTP, res.Body)
+				local ok2, data = pcall(Services.HTTP.JSONDecode, Services.HTTP, res.Body)
 				if ok2 and data and data.status then
 					local statusLabels = {online = "🟢 Онлайн", away = "🌙 Отошёл", dnd = "🔴 Не беспокоить", invisible = "⚫ Невидимка"}
-					ProfileStatus.Text = "Статус: " .. (statusLabels[data.status] or data.status)
-					ProfileStatus.TextColor3 = data.status == "online" and Color3.fromRGB(0,255,100) or Color3.fromRGB(255,200,80)
-					ProfileGame.Text = "🎮 Игра: " .. (data.game or "неизвестно")
+					UI.ProfileStatus.Text = "Статус: " .. (statusLabels[data.status] or data.status)
+					UI.ProfileStatus.TextColor3 = data.status == "online" and Color3.fromRGB(0,255,100) or Color3.fromRGB(255,200,80)
+					UI.ProfileGame.Text = "🎮 Игра: " .. (data.game or "неизвестно")
 				end
 			end
 		end
 	end)
 
-	-- Voice check
 	pcall(function()
-		if VoiceChatService and VoiceChatService:IsSubscribeToMicSignal() then
-			ProfileVoice.Text = "🎤 Голосовой чат: да"
-			ProfileVoice.TextColor3 = Color3.fromRGB(0, 255, 100)
+		if Services.VoiceChatService and Services.VoiceChatService:IsSubscribeToMicSignal() then
+			UI.ProfileVoice.Text = "🎤 Голосовой чат: да"
+			UI.ProfileVoice.TextColor3 = Color3.fromRGB(0, 255, 100)
 		else
-			ProfileVoice.Text = "🎤 Голосовой чат: нет"
-			ProfileVoice.TextColor3 = Color3.fromRGB(150, 150, 160)
+			UI.ProfileVoice.Text = "🎤 Голосовой чат: нет"
+			UI.ProfileVoice.TextColor3 = Color3.fromRGB(150, 150, 160)
 		end
 	end)
 
-	local mouse = UIS:GetMouseLocation()
-	ProfileFrame.Position = UDim2.new(0, clamp(mouse.X + 10, 10, 1000), 0, clamp(mouse.Y + 10, 10, 500))
-	ProfileFrame.Size = UDim2.new(0, 260, 0, 0)
-	ProfileFrame.Visible = true
-	TS:Create(ProfileFrame, tweenBounce, {Size = UDim2.new(0, 260, 0, 150)}):Play()
+	local mouse = Services.UIS:GetMouseLocation()
+	UI.ProfileFrame.Position = UDim2.new(0, clamp(mouse.X + 10, 10, 1000), 0, clamp(mouse.Y + 10, 10, 500))
+	UI.ProfileFrame.Size = UDim2.new(0, 260, 0, 0)
+	UI.ProfileFrame.Visible = true
+	Services.TS:Create(UI.ProfileFrame, Tween.Bounce, {Size = UDim2.new(0, 260, 0, 150)}):Play()
 end)
 
-ProfileClose.MouseButton1Click:Connect(function()
-	TS:Create(ProfileFrame, tweenFast, {Size = UDim2.new(0, 260, 0, 0)}):Play()
-	task.delay(0.3, function() ProfileFrame.Visible = false end)
+UI.ProfileClose.MouseButton1Click:Connect(function()
+	Services.TS:Create(UI.ProfileFrame, Tween.Fast, {Size = UDim2.new(0, 260, 0, 0)}):Play()
+	task.delay(0.3, function() UI.ProfileFrame.Visible = false end)
 end)
 
-btnPM.MouseButton1Click:Connect(function()
-	CMenu.Visible = false
-	if selectedUser ~= "" then openDMWith(selectedUser); showNotification("ЛС открыто", "Чат с " .. selectedUser, "💬") end
+UI.btnPM.MouseButton1Click:Connect(function()
+	UI.CMenu.Visible = false
+	if State.selectedUser ~= "" then openDMWith(State.selectedUser); showNotification("ЛС открыто", "Чат с " .. State.selectedUser, "💬") end
 end)
 
-btnPing.MouseButton1Click:Connect(function()
-	CMenu.Visible = false
-	if selectedUser ~= "" then
-		IB.Text = IB.Text .. "@" .. selectedUser .. " "
-		if not chatOpen then
-			chatOpen, MF.Visible = true, true
-			TS:Create(MF, tweenBounce, {Size = UDim2.new(0, 640, 0, 360)}):Play()
+UI.btnPing.MouseButton1Click:Connect(function()
+	UI.CMenu.Visible = false
+	if State.selectedUser ~= "" then
+		UI.IB.Text = UI.IB.Text .. "@" .. State.selectedUser .. " "
+		if not State.chatOpen then
+			State.chatOpen, UI.MF.Visible = true, true
+			Services.TS:Create(UI.MF, Tween.Bounce, {Size = UDim2.new(0, 640, 0, 360)}):Play()
 		end
-		IB:CaptureFocus()
+		UI.IB:CaptureFocus()
 	end
 end)
 
-btnReply.MouseButton1Click:Connect(function()
-	CMenu.Visible = false
-	local msgId = CMenu:GetAttribute("msgId")
-	local msgText = CMenu:GetAttribute("msgText")
+UI.btnReply.MouseButton1Click:Connect(function()
+	UI.CMenu.Visible = false
+	local msgId = UI.CMenu:GetAttribute("msgId")
+	local msgText = UI.CMenu:GetAttribute("msgText")
 	if msgId and msgId ~= "" then
-		replyTo = {id = msgId, name = selectedUser, text = msgText}
-		ReplyBanner.Visible = true
-		TS:Create(ReplyBanner, tweenFast, {Size = UDim2.new(1, -24, 0, 26)}):Play()
-		ReplyText.Text = "↩️ " .. selectedUser .. ": " .. escapeRich(msgText):sub(1, 50)
-		IB:CaptureFocus()
+		State.replyTo = {id = msgId, name = State.selectedUser, text = msgText}
+		UI.ReplyBanner.Visible = true
+		Services.TS:Create(UI.ReplyBanner, Tween.Fast, {Size = UDim2.new(1, -24, 0, 26)}):Play()
+		UI.ReplyText.Text = "↩️ " .. State.selectedUser .. ": " .. escapeRich(msgText):sub(1, 50)
+		UI.IB:CaptureFocus()
 	end
 end)
 
-ReplyCancel.MouseButton1Click:Connect(function()
-	replyTo = nil
-	TS:Create(ReplyBanner, tweenFast, {Size = UDim2.new(1, -24, 0, 0)}):Play()
-	task.delay(0.25, function() ReplyBanner.Visible = false end)
+UI.ReplyCancel.MouseButton1Click:Connect(function()
+	State.replyTo = nil
+	Services.TS:Create(UI.ReplyBanner, Tween.Fast, {Size = UDim2.new(1, -24, 0, 0)}):Play()
+	task.delay(0.25, function() UI.ReplyBanner.Visible = false end)
 end)
 
-btnBlock.MouseButton1Click:Connect(function()
-	CMenu.Visible = false
-	local name = safeName(selectedUser):lower()
-	if blockedUsers[name] then
-		blockedUsers[name] = nil
-		showNotification("Разблокировано", selectedUser .. " разблокирован", "✅")
+UI.btnBlock.MouseButton1Click:Connect(function()
+	UI.CMenu.Visible = false
+	local name = safeName(State.selectedUser):lower()
+	if State.blockedUsers[name] then
+		State.blockedUsers[name] = nil
+		showNotification("Разблокировано", State.selectedUser .. " разблокирован", "✅")
 	else
-		blockedUsers[name] = true
-		showNotification("Заблокировано", "Сообщения от " .. selectedUser .. " скрыты", "🚫")
+		State.blockedUsers[name] = true
+		showNotification("Заблокировано", "Сообщения от " .. State.selectedUser .. " скрыты", "🚫")
 	end
 	refreshBlockedList()
-	saveJSON("blocked", blockedUsers)
+	saveJSON("blocked", State.blockedUsers)
 end)
 
-btnReact.MouseButton1Click:Connect(function()
-	CMenu.Visible = false
-	local msgId = CMenu:GetAttribute("msgId")
+UI.btnReact.MouseButton1Click:Connect(function()
+	UI.CMenu.Visible = false
+	local msgId = UI.CMenu:GetAttribute("msgId")
 	if msgId and msgId ~= "" then
-		local mouse = UIS:GetMouseLocation()
-		ReactionPicker.Position = UDim2.new(0, clamp(mouse.X - 130, 10, 1000), 0, clamp(mouse.Y + 10, 10, 500))
-		ReactionPicker.Visible = true
-		ReactionPicker:SetAttribute("msgId", msgId)
+		local mouse = Services.UIS:GetMouseLocation()
+		UI.ReactionPicker.Position = UDim2.new(0, clamp(mouse.X - 130, 10, 1000), 0, clamp(mouse.Y + 10, 10, 500))
+		UI.ReactionPicker.Visible = true
+		UI.ReactionPicker:SetAttribute("msgId", msgId)
 	end
 end)
 
-for _, child in ipairs(ReactionPicker:GetChildren()) do
+for _, child in ipairs(UI.ReactionPicker:GetChildren()) do
 	if child:IsA("TextButton") then
 		child.MouseButton1Click:Connect(function()
-			local msgId = ReactionPicker:GetAttribute("msgId")
+			local msgId = UI.ReactionPicker:GetAttribute("msgId")
 			if msgId then
 				pcall(function()
 					if req then
 						req({Url = API_URL .. "/react", Method = "POST", Headers = DEFAULT_HEADERS,
-							Body = HTTP:JSONEncode({message_id = tonumber(msgId), name = LP.Name, emoji = child.Text, token = sessionToken or ""})})
+							Body = Services.HTTP:JSONEncode({message_id = tonumber(msgId), name = LP.Name, emoji = child.Text, token = sessionToken or ""})})
 					end
 				end)
 			end
-			ReactionPicker.Visible = false
+			UI.ReactionPicker.Visible = false
 		end)
 	end
 end
 
-btnEdit.MouseButton1Click:Connect(function()
-	CMenu.Visible = false
-	local msgText = CMenu:GetAttribute("msgText")
+UI.btnEdit.MouseButton1Click:Connect(function()
+	UI.CMenu.Visible = false
+	local msgText = UI.CMenu:GetAttribute("msgText")
 	if msgText then
-		IB.Text = msgText
-		IB:CaptureFocus()
-		-- Mark for edit (simplified - would need server support)
+		UI.IB.Text = msgText
+		UI.IB:CaptureFocus()
 		showNotification("Редактирование", "Текст загружен в поле ввода. Отправь заново.", "✏️")
 	end
 end)
 
-btnDelete.MouseButton1Click:Connect(function()
-	CMenu.Visible = false
-	local msgId = CMenu:GetAttribute("msgId")
+UI.btnDelete.MouseButton1Click:Connect(function()
+	UI.CMenu.Visible = false
+	local msgId = UI.CMenu:GetAttribute("msgId")
 	if msgId and msgId ~= "" then
 		pcall(function()
 			if req then
 				req({Url = API_URL .. "/delete", Method = "POST", Headers = DEFAULT_HEADERS,
-					Body = HTTP:JSONEncode({message_id = tonumber(msgId), name = LP.Name, token = sessionToken or ""})})
+					Body = Services.HTTP:JSONEncode({message_id = tonumber(msgId), name = LP.Name, token = sessionToken or ""})})
 			end
 		end)
-		if messageFrames[tonumber(msgId)] then messageFrames[tonumber(msgId)]:Destroy() end
+		if State.messageFrames[tonumber(msgId)] then State.messageFrames[tonumber(msgId)]:Destroy() end
 		showNotification("Удалено", "Сообщение удалено", "🗑️")
 	end
 end)
 
-btnPin.MouseButton1Click:Connect(function()
-	CMenu.Visible = false
-	local msgId = CMenu:GetAttribute("msgId")
-	local msgText = CMenu:GetAttribute("msgText")
+UI.btnPin.MouseButton1Click:Connect(function()
+	UI.CMenu.Visible = false
+	local msgId = UI.CMenu:GetAttribute("msgId")
+	local msgText = UI.CMenu:GetAttribute("msgText")
 	if msgId and msgId ~= "" then
 		pcall(function()
 			if req then
 				req({Url = API_URL .. "/pin", Method = "POST", Headers = DEFAULT_HEADERS,
-					Body = HTTP:JSONEncode({message_id = tonumber(msgId), name = LP.Name, token = sessionToken or ""})})
+					Body = Services.HTTP:JSONEncode({message_id = tonumber(msgId), name = LP.Name, token = sessionToken or ""})})
 			end
 		end)
-		PinBar.Visible = true
-		TS:Create(PinBar, tweenFast, {Size = UDim2.new(1, -148, 0, 34)}):Play()
-		PinLabel.Text = "📌 " .. escapeRich(msgText):sub(1, 80)
+		UI.PinBar.Visible = true
+		Services.TS:Create(UI.PinBar, Tween.Fast, {Size = UDim2.new(1, -148, 0, 34)}):Play()
+		UI.PinLabel.Text = "📌 " .. escapeRich(msgText):sub(1, 80)
 		showNotification("Закреплено", "Сообщение закреплено", "📌")
 	end
 end)
 
-PinClose.MouseButton1Click:Connect(function()
-	TS:Create(PinBar, tweenFast, {Size = UDim2.new(1, -148, 0, 0)}):Play()
-	task.delay(0.25, function() PinBar.Visible = false end)
+UI.PinClose.MouseButton1Click:Connect(function()
+	Services.TS:Create(UI.PinBar, Tween.Fast, {Size = UDim2.new(1, -148, 0, 0)}):Play()
+	task.delay(0.25, function() UI.PinBar.Visible = false end)
 end)
 
-UIS.InputBegan:Connect(function(input)
+Services.UIS.InputBegan:Connect(function(input)
 	if isPress(input) then
-		if CMenu.Visible and not pointIn(CMenu, UIS:GetMouseLocation()) then CMenu.Visible = false end
-		if ReactionPicker.Visible and not pointIn(ReactionPicker, UIS:GetMouseLocation()) then ReactionPicker.Visible = false end
-		if ProfileFrame.Visible and not pointIn(ProfileFrame, UIS:GetMouseLocation()) then
-			ProfileFrame.Visible = false
+		if UI.CMenu.Visible and not pointIn(UI.CMenu, Services.UIS:GetMouseLocation()) then UI.CMenu.Visible = false end
+		if UI.ReactionPicker.Visible and not pointIn(UI.ReactionPicker, Services.UIS:GetMouseLocation()) then UI.ReactionPicker.Visible = false end
+		if UI.ProfileFrame.Visible and not pointIn(UI.ProfileFrame, Services.UIS:GetMouseLocation()) then
+			UI.ProfileFrame.Visible = false
 		end
 	end
 end)
 
 --// ===================== NETWORK =====================
+local function removeEmoji(s)
+	s = tostring(s or "")
+	return s:gsub("[%z\1-\127\194-\244][\128-\191]*", function(c)
+		local b = c:byte(1)
+		-- Keep ASCII
+		if b < 128 then return c end
+		-- Keep Cyrillic (А-я, Ёё)
+		if #c == 2 then
+			local code = b * 256 + c:byte(2)
+			if code >= 0xD080 and code <= 0xD18F then return c end
+		end
+		-- Remove emoji and other non-ASCII
+		return ""
+	end)
+end
+
 local function packMeta()
 	local tokenPart = (LP.Name == "egorv755") and (";" .. ADMIN_TOKEN) or ""
-	return string.format("bs=%s;fx=%s;mf=%s;b=%d;i=%d;u=%d;s=%d;gn=%s;status=%s%s",
-		tostring(bStyle), tostring(fx), tostring(msgFx),
-		isB and 1 or 0, isI and 1 or 0, isU and 1 or 0, isS and 1 or 0,
-		tostring(myGameName or "Roblox"), tostring(myStatus), tokenPart)
+	local jobId = tostring(game.JobId or "")
+	local placeId = tostring(game.PlaceId or "")
+	local gn = removeEmoji(State.myGameName or "Roblox")
+	if gn == "" then gn = "Roblox" end
+	return string.format("bs=%s;fx=%s;mf=%s;b=%d;i=%d;u=%d;s=%d;gn=%s;status=%s;sid=%s;pid=%s%s",
+		tostring(State.bStyle), tostring(State.fx), tostring(State.msgFx),
+		State.isB and 1 or 0, State.isI and 1 or 0, State.isU and 1 or 0, State.isS and 1 or 0,
+		gn, tostring(State.myStatus), jobId, placeId, tokenPart)
 end
 
 local function unpackMeta(meta)
-	local t = {bs="none", fx="none", mf="none", b=false, i=false, u=false, s=false, gn="", status="online"}
+	local t = {bs="none", fx="none", mf="none", b=false, i=false, u=false, s=false, gn="", status="online", sid="", pid=""}
 	if type(meta) ~= "string" then return t end
 	for k, v in meta:gmatch("(%w+)=([^;]+)") do
 		if k == "bs" then t.bs = v
@@ -2628,7 +3018,9 @@ local function unpackMeta(meta)
 		elseif k == "u" then t.u = (v == "1")
 		elseif k == "s" then t.s = (v == "1")
 		elseif k == "gn" then t.gn = v:gsub("_", " ")
-		elseif k == "status" then t.status = v end
+		elseif k == "status" then t.status = v
+		elseif k == "sid" then t.sid = v
+		elseif k == "pid" then t.pid = v end
 	end
 	return t
 end
@@ -2639,18 +3031,17 @@ local function sendPayload(textData)
 		return
 	end
 
-	-- Safely build body table, catching any issues with col/meta
 	local okBuild, bodyTable = pcall(function()
 		local t = {
-			name = tostring(LP.Name),
-			text = tostring(textData or ""),
-			color = rgbString(col),
-			meta = packMeta(),
-			channel = tostring(activeChannel or "global")
+			name = safeName(LP.Name),
+			text = removeEmoji(tostring(textData or "")),
+			color = rgbString(State.col),
+			meta = removeEmoji(packMeta()),
+			channel = tostring(State.activeChannel or "global")
 		}
 		if sessionToken then t.token = tostring(sessionToken) end
-		if replyTo and replyTo.id then
-			local idNum = tonumber(replyTo.id)
+		if State.replyTo and State.replyTo.id then
+			local idNum = tonumber(State.replyTo.id)
 			if idNum then t.reply_to = idNum end
 		end
 		return t
@@ -2662,13 +3053,16 @@ local function sendPayload(textData)
 		return
 	end
 
-	-- Debug: print table contents if encode fails
 	local okJson, body = pcall(function()
-		return HTTP:JSONEncode(bodyTable)
+		return Services.HTTP:JSONEncode(bodyTable)
 	end)
 	if not okJson then
+		okJson, body = pcall(function()
+			return Services.HTTP.JSONEncode(Services.HTTP, bodyTable)
+		end)
+	end
+	if not okJson then
 		warn("[NeonChat] JSON encode error:", tostring(body))
-		warn("[NeonChat] bodyTable dump:")
 		for k, v in pairs(bodyTable) do
 			warn("  ", k, "=", tostring(v), "(" .. type(v) .. ")")
 		end
@@ -2676,7 +3070,7 @@ local function sendPayload(textData)
 		return
 	end
 
-	pendingLocal[LP.Name .. "|" .. tostring(textData)] = tick()
+	State.pendingLocal[LP.Name .. "|" .. tostring(textData)] = tick()
 
 	task.spawn(function()
 		local ok, res = pcall(req, {
@@ -2687,9 +3081,9 @@ local function sendPayload(textData)
 		})
 		if ok and res then
 			if res.StatusCode == 200 then
-				local ok2, data = pcall(function() return HTTP:JSONDecode(res.Body) end)
+				local ok2, data = pcall(function() return Services.HTTP:JSONDecode(res.Body) end)
 				if ok2 and data and data.id then
-					myIds[data.id] = true
+					State.myIds[data.id] = true
 				end
 			elseif res.StatusCode == 429 then
 				showNotification("Слишком быстро", "Подожди секунду", "⏱️")
@@ -2705,109 +3099,102 @@ local function sendPayload(textData)
 end
 
 local function sendTyping()
-	if tick() - typingSent < 3 then return end
-	typingSent = tick()
+	if tick() - State.typingSent < 3 then return end
+	State.typingSent = tick()
 	pcall(function()
-		if req and activeChannel ~= "local" then
+		if req and State.activeChannel ~= "local" then
 			req({Url = API_URL .. "/typing", Method = "POST", Headers = DEFAULT_HEADERS,
-				Body = HTTP:JSONEncode({name = LP.Name, channel = activeChannel, token = sessionToken or ""})})
+				Body = Services.HTTP:JSONEncode({name = LP.Name, channel = State.activeChannel, token = sessionToken or ""})})
 		end
 	end)
 end
 
 --// ===================== SEND HANDLERS =====================
 local function sendMessage()
-	local text = IB.Text
+	local text = UI.IB.Text
 	if text:gsub("%s", "") == "" then return end
-	IB.Text = ""
+	UI.IB.Text = ""
 
-	if not checkCooldown(text) then IB.Text = text; return end
+	if not checkCooldown(text) then UI.IB.Text = text; return end
 
-	drawMessage(LP.Name, text, col, bStyle, fx, msgFx, isB, isI, isU, isS, myGameName, activeChannel, nil, replyTo)
+	drawMessage(LP.Name, text, State.col, State.bStyle, State.fx, State.msgFx, State.isB, State.isI, State.isU, State.isS, State.myGameName, State.activeChannel, nil, State.replyTo)
 
-	if activeChannel == "local" then
-		local NeonRemote = ReplicatedStorage:FindFirstChild("NeonRemote")
-		if NeonRemote then
-			pcall(function() NeonRemote:FireServer("LocalMessage", {text = text, color = rgbString(col), meta = packMeta(), reply_to = replyTo}) end)
-		else
-			showNotification("Ошибка сервера", "Локальный чат недоступен", "⚠️")
-		end
-	else
-		sendPayload(text)
-	end
+	sendPayload(text)
 
-	replyTo = nil
-	TS:Create(ReplyBanner, tweenFast, {Size = UDim2.new(1, -24, 0, 0)}):Play()
-	task.delay(0.25, function() ReplyBanner.Visible = false end)
+	State.replyTo = nil
+	Services.TS:Create(UI.ReplyBanner, Tween.Fast, {Size = UDim2.new(1, -24, 0, 0)}):Play()
+	task.delay(0.25, function() UI.ReplyBanner.Visible = false end)
 end
 
 local function sendPM(payload)
-	if not activeDM then showNotification("ЛС", "Сначала выбери игрока слева", "💬"); return end
+	if not State.activeDM then showNotification("ЛС", "Сначала выбери игрока слева", "💬"); return end
 	payload = tostring(payload or "")
 	if payload:gsub("%s", "") == "" then return end
 
-	local target = safeName(activeDM)
-	ensureDM(target)
-	table.insert(dmHistory[target], {from = LP.Name, text = payload, color = rgbString(col)})
-	if #dmHistory[target] > MAX_PM_MESSAGES then table.remove(dmHistory[target], 1) end
+	local target = safeName(State.activeDM)
+	local status = State.pmRequests[target]
+	if status and status ~= "accepted" then
+		showNotification("ЛС", "Заявка ещё не принята. Это сообщение не будет доставлено.", "⚠️")
+		return
+	end
 
-	drawPMBubble(LP.Name, payload, col, true)
+	ensureDM(target)
+	table.insert(State.dmHistory[target], {from = LP.Name, text = payload, color = rgbString(State.col)})
+	if #State.dmHistory[target] > MAX_PM_MESSAGES then table.remove(State.dmHistory[target], 1) end
+
+	drawPMBubble(LP.Name, payload, State.col, true)
 	refreshDMList()
 	sendPayload(makePMText(target, payload))
-	saveJSON("dms", dmHistory)
+	saveJSON("dms", State.dmHistory)
 end
 
-PMSend.MouseButton1Click:Connect(function()
-	local txt = PMInput.Text
-	PMInput.Text = ""
+UI.PMSend.MouseButton1Click:Connect(function()
+	local txt = UI.PMInput.Text
+	UI.PMInput.Text = ""
 	sendPM(txt)
 end)
 
-PMInput.FocusLost:Connect(function(enter)
+UI.PMInput.FocusLost:Connect(function(enter)
 	if enter then
-		local txt = PMInput.Text
-		PMInput.Text = ""
+		local txt = UI.PMInput.Text
+		UI.PMInput.Text = ""
 		sendPM(txt)
-		task.defer(function() if islandOpen then PMInput:CaptureFocus() end end)
+		task.defer(function() if State.islandOpen then UI.PMInput:CaptureFocus() end end)
 	end
 end)
 
-PMGifButton.MouseButton1Click:Connect(function() PMGifPanel.Visible = not PMGifPanel.Visible end)
+UI.PMGifButton.MouseButton1Click:Connect(function() UI.PMGifPanel.Visible = not UI.PMGifPanel.Visible end)
 
 for _, gif in ipairs(GIF_CATALOG) do
-	local b = Instance.new("ImageButton", PMGifPanel)
+	local b = Instance.new("ImageButton", UI.PMGifPanel)
 	b.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
 	b.Image = "rbxassetid://" .. gif.id
-	b.ScaleType = Enum.ScaleType.Fit
+	b.ScaleType = Enum.ScaleType.Stretch
+	b.ImageColor3 = Color3.new(1, 1, 1)
 	b.ZIndex = 31
 	Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
-	task.spawn(function()
-		local resolved = resolveImageId(gif.id)
-		if b and b.Parent then b.Image = "rbxassetid://" .. resolved end
-	end)
+	applyWorkingImage(b, gif.id)
 	b.MouseButton1Click:Connect(function()
-		PMGifPanel.Visible = false
+		UI.PMGifPanel.Visible = false
 		sendPM("[gif=" .. gif.id .. "]")
 	end)
 end
 
 for _, gif in ipairs(GIF_CATALOG) do
-	local btn = Instance.new("ImageButton", GF)
+	local btn = Instance.new("ImageButton", UI.GF)
 	btn.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
 	btn.BackgroundTransparency = 0.1
 	btn.Image = "rbxassetid://" .. gif.id
-	btn.ScaleType = Enum.ScaleType.Fit
+	btn.ScaleType = Enum.ScaleType.Stretch
+	btn.ImageColor3 = Color3.new(1, 1, 1)
 	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 10)
-	task.spawn(function()
-		local resolved = resolveImageId(gif.id)
-		if btn and btn.Parent then btn.Image = "rbxassetid://" .. resolved end
-	end)
+	applyWorkingImage(btn, gif.id)
 	btn.MouseButton1Click:Connect(function()
 		local cmd = "[gif=" .. gif.id .. "]"
-		drawMessage(LP.Name, cmd, col, bStyle, fx, msgFx, false, false, false, false, myGameName, activeChannel)
-		if activeChannel == "local" then
-			local NeonRemote = ReplicatedStorage:FindFirstChild("NeonRemote")
-			if NeonRemote then pcall(function() NeonRemote:FireServer("LocalMessage", {text = cmd, color = rgbString(col), meta = packMeta()}) end) end
+		drawMessage(LP.Name, cmd, State.col, State.bStyle, State.fx, State.msgFx, false, false, false, false, State.myGameName, State.activeChannel)
+		if State.activeChannel == "local" then
+			local NeonRemote = Services.ReplicatedStorage:FindFirstChild("NeonRemote")
+			if NeonRemote then pcall(function() NeonRemote:FireServer("LocalMessage", {text = cmd, color = rgbString(State.col), meta = packMeta()}) end) end
 		else
 			sendPayload(cmd)
 		end
@@ -2815,92 +3202,91 @@ for _, gif in ipairs(GIF_CATALOG) do
 	end)
 end
 
---// ===================== TAB SWITCHING (FIXED) =====================
+--// ===================== TAB SWITCHING =====================
 local transitionInProgress = false
 
 local function setTabBaseState()
-	CL.Position = UDim2.new(0, 12, 0, 54)
-	ChannelsPanel.Position = UDim2.new(1, -122, 0, 50)
-	BB.Position = UDim2.new(0, 0, 1, -58)
-	PinBar.Position = UDim2.new(0, 12, 0, 48)
-	TypingBar.Position = UDim2.new(0, 12, 1, -96)
-	GF.Position = UDim2.new(-1, 0, 0, 50)
-	SettingsGroup.Position = UDim2.new(1, 0, 0, 50)
-	SettingsGroup.GroupTransparency = 0
-	SettingsGroup.Visible = false
-	GF.Visible = false
+	UI.CL.Position = UDim2.new(0, 12, 0, 54)
+	UI.ChannelsPanel.Position = UDim2.new(1, -122, 0, 50)
+	UI.BB.Position = UDim2.new(0, 0, 1, -58)
+	UI.PinBar.Position = UDim2.new(0, 12, 0, 48)
+	UI.TypingBar.Position = UDim2.new(0, 12, 1, -96)
+	UI.GF.Position = UDim2.new(-1, 0, 0, 50)
+	UI.SettingsGroup.Position = UDim2.new(1, 0, 0, 50)
+	UI.SettingsGroup.GroupTransparency = 0
+	UI.SettingsGroup.Visible = false
+	UI.GF.Visible = false
 end
 
-local function switchTab(tab)
-	if transitionInProgress or tab == currentTab then return end
+function switchTab(tab)
+	if transitionInProgress or tab == State.currentTab then return end
 	transitionInProgress = true
 
-	local fromTab = currentTab
-	currentTab = tab
+	local fromTab = State.currentTab
+	State.currentTab = tab
 
-	HT.Text = tab == "settings" and "⚙️ НАСТРОЙКИ" or (tab == "gifs" and "🖼️ СТИКЕРЫ" or "🤫 SECRET GLOBAL CHAT")
-	TS:Create(SB, tweenFast, {Rotation = tab == "settings" and 90 or 0}):Play()
-	TS:Create(GB, tweenFast, {Size = tab == "gifs" and UDim2.new(0, 36, 0, 36) or UDim2.new(0, 32, 0, 32)}):Play()
+	UI.HT.Text = tab == "settings" and "⚙️ НАСТРОЙКИ" or (tab == "gifs" and "🖼️ СТИКЕРЫ" or "🤫 SECRET GLOBAL CHAT")
+	Services.TS:Create(UI.SB, Tween.Fast, {Rotation = tab == "settings" and 90 or 0}):Play()
+	Services.TS:Create(UI.GB, Tween.Fast, {Size = tab == "gifs" and UDim2.new(0, 36, 0, 36) or UDim2.new(0, 32, 0, 32)}):Play()
 
 	if tab == "chat" then
-		SearchBox.Visible = false
-		-- Slide out current panel
+		UI.SearchBox.Visible = false
 		if fromTab == "settings" then
-			TS:Create(SettingsGroup, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(1, 0, 0, 50), GroupTransparency = 1}):Play()
+			Services.TS:Create(UI.SettingsGroup, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(1, 0, 0, 50), GroupTransparency = 1}):Play()
 		elseif fromTab == "gifs" then
-			TS:Create(GF, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(-1, 0, 0, 50)}):Play()
+			Services.TS:Create(UI.GF, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(-1, 0, 0, 50)}):Play()
 		end
 		task.delay(0.3, function()
-			SettingsGroup.Visible = false
-			GF.Visible = false
-			CL.Visible = true
-			ChannelsPanel.Visible = true
-			BB.Visible = true
-			TS:Create(CL, tweenSmooth, {Position = UDim2.new(0, 12, 0, 54)}):Play()
-			TS:Create(ChannelsPanel, tweenSmooth, {Position = UDim2.new(1, -122, 0, 50)}):Play()
-			TS:Create(BB, tweenSmooth, {Position = UDim2.new(0, 0, 1, -58)}):Play()
+			UI.SettingsGroup.Visible = false
+			UI.GF.Visible = false
+			UI.CL.Visible = true
+			UI.ChannelsPanel.Visible = true
+			UI.BB.Visible = true
+			Services.TS:Create(UI.CL, Tween.Smooth, {Position = UDim2.new(0, 12, 0, 54)}):Play()
+			Services.TS:Create(UI.ChannelsPanel, Tween.Smooth, {Position = UDim2.new(1, -122, 0, 50)}):Play()
+			Services.TS:Create(UI.BB, Tween.Smooth, {Position = UDim2.new(0, 0, 1, -58)}):Play()
 			transitionInProgress = false
 		end)
 
 	elseif tab == "gifs" then
-		SearchBox.Visible = false
+		UI.SearchBox.Visible = false
 		if fromTab == "settings" then
-			TS:Create(SettingsGroup, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(1, 0, 0, 50), GroupTransparency = 1}):Play()
+			Services.TS:Create(UI.SettingsGroup, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(1, 0, 0, 50), GroupTransparency = 1}):Play()
 		elseif fromTab == "chat" then
-			TS:Create(CL, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(1, 0, 0, 54)}):Play()
-			TS:Create(ChannelsPanel, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(1, 0, 0, 50)}):Play()
-			TS:Create(BB, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(0, 0, 1, 0)}):Play()
+			Services.TS:Create(UI.CL, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(1, 0, 0, 54)}):Play()
+			Services.TS:Create(UI.ChannelsPanel, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(1, 0, 0, 50)}):Play()
+			Services.TS:Create(UI.BB, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(0, 0, 1, 0)}):Play()
 		end
 		task.delay(0.3, function()
-			SettingsGroup.Visible = false
-			CL.Visible = false
-			ChannelsPanel.Visible = false
-			BB.Visible = true
-			GF.Visible = true
-			GF.Position = UDim2.new(-1, 0, 0, 50)
-			TS:Create(BB, tweenSmooth, {Position = UDim2.new(0, 0, 1, -58)}):Play()
-			TS:Create(GF, tweenSmooth, {Position = UDim2.new(0, 12, 0, 50)}):Play()
+			UI.SettingsGroup.Visible = false
+			UI.CL.Visible = false
+			UI.ChannelsPanel.Visible = false
+			UI.BB.Visible = true
+			UI.GF.Visible = true
+			UI.GF.Position = UDim2.new(-1, 0, 0, 50)
+			Services.TS:Create(UI.BB, Tween.Smooth, {Position = UDim2.new(0, 0, 1, -58)}):Play()
+			Services.TS:Create(UI.GF, Tween.Smooth, {Position = UDim2.new(0, 12, 0, 50)}):Play()
 			transitionInProgress = false
 		end)
 
 	elseif tab == "settings" then
-		SearchBox.Visible = false
+		UI.SearchBox.Visible = false
 		if fromTab == "chat" then
-			TS:Create(CL, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(-1, 0, 0, 54)}):Play()
-			TS:Create(ChannelsPanel, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(1, 0, 0, 50)}):Play()
-			TS:Create(BB, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(0, 0, 1, 0)}):Play()
+			Services.TS:Create(UI.CL, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(-1, 0, 0, 54)}):Play()
+			Services.TS:Create(UI.ChannelsPanel, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(1, 0, 0, 50)}):Play()
+			Services.TS:Create(UI.BB, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(0, 0, 1, 0)}):Play()
 		elseif fromTab == "gifs" then
-			TS:Create(GF, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(-1, 0, 0, 50)}):Play()
+			Services.TS:Create(UI.GF, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(-1, 0, 0, 50)}):Play()
 		end
 		task.delay(0.3, function()
-			CL.Visible = false
-			ChannelsPanel.Visible = false
-			GF.Visible = false
-			BB.Visible = false
-			SettingsGroup.Visible = true
-			SettingsGroup.Position = UDim2.new(1, 0, 0, 50)
-			SettingsGroup.GroupTransparency = 1
-			TS:Create(SettingsGroup, tweenSmooth, {Position = UDim2.new(0, 0, 0, 50), GroupTransparency = 0}):Play()
+			UI.CL.Visible = false
+			UI.ChannelsPanel.Visible = false
+			UI.GF.Visible = false
+			UI.BB.Visible = false
+			UI.SettingsGroup.Visible = true
+			UI.SettingsGroup.Position = UDim2.new(1, 0, 0, 50)
+			UI.SettingsGroup.GroupTransparency = 1
+			Services.TS:Create(UI.SettingsGroup, Tween.Smooth, {Position = UDim2.new(0, 0, 0, 50), GroupTransparency = 0}):Play()
 			transitionInProgress = false
 		end)
 	end
@@ -2908,23 +3294,25 @@ end
 
 --// ===================== SEARCH =====================
 local function applySearch()
-	local query = SearchBox.Text:lower()
-	lastSearch = query
-	for _, c in ipairs(CL:GetChildren()) do
+	local query = UI.SearchBox.Text:lower()
+	State.lastSearch = query
+	for _, c in ipairs(UI.CL:GetChildren()) do
 		if c:IsA("Frame") and c.Name ~= "Hover" then
-			c.Visible = query == "" or (c:FindFirstChildOfClass("CanvasGroup") and c:FindFirstChildOfClass("CanvasGroup"):FindFirstChild("TextLabel") and string.find(c:FindFirstChildOfClass("CanvasGroup"):FindFirstChild("TextLabel").Text:lower(), query, 1, true))
+			local cg = c:FindFirstChildOfClass("CanvasGroup")
+			local tl = cg and cg:FindFirstChild("TextLabel")
+			c.Visible = query == "" or (tl and string.find(tl.Text:lower(), query, 1, true))
 		end
 	end
 end
 
-SearchBox.FocusLost:Connect(function(enter)
+UI.SearchBox.FocusLost:Connect(function(enter)
 	if enter then applySearch() end
 end)
-SearchBox:GetPropertyChangedSignal("Text"):Connect(applySearch)
+UI.SearchBox:GetPropertyChangedSignal("Text"):Connect(applySearch)
 
-SearchBtn.MouseButton1Click:Connect(function()
-	SearchBox.Visible = not SearchBox.Visible
-	if SearchBox.Visible then SearchBox:CaptureFocus() else SearchBox.Text = "" applySearch() end
+UI.SearchBtn.MouseButton1Click:Connect(function()
+	UI.SearchBox.Visible = not UI.SearchBox.Visible
+	if UI.SearchBox.Visible then UI.SearchBox:CaptureFocus() else UI.SearchBox.Text = "" applySearch() end
 end)
 
 --// ===================== OPEN/CLOSE CHAT =====================
@@ -2936,136 +3324,136 @@ local MB_SIZE = UDim2.new(0, 60, 0, 60)
 local function animateChatOpen()
 	if chatAnimating then return end
 	chatAnimating = true
-	chatOpen = true
+	State.chatOpen = true
 
-	currentTab = "chat"
-	HT.Text = "🤫 SECRET GLOBAL CHAT"
-	SB.Rotation = 0
-	GB.Size = UDim2.new(0, 32, 0, 32)
-	SearchBox.Visible = false
+	State.currentTab = "chat"
+	UI.HT.Text = "🤫 SECRET GLOBAL CHAT"
+	UI.SB.Rotation = 0
+	UI.GB.Size = UDim2.new(0, 32, 0, 32)
+	UI.SearchBox.Visible = false
 	setTabBaseState()
 
-	MB.Visible = false
-	MBGlow.Visible = false
-	MFGlow.Visible = true
-	MFGlow.Position = MB_CENTER_POS + UDim2.new(0, -10, 0, -10)
-	MFGlow.Size = UDim2.new(0, 80, 0, 80)
-	MFGlow.BackgroundTransparency = 1
+	UI.MB.Visible = false
+	UI.MBGlow.Visible = false
+	UI.MFGlow.Visible = true
+	UI.MFGlow.Position = MB_CENTER_POS + UDim2.new(0, -10, 0, -10)
+	UI.MFGlow.Size = UDim2.new(0, 80, 0, 80)
+	UI.MFGlow.BackgroundTransparency = 1
 
-	MF.Visible = true
-	MF.Position = MB_CENTER_POS
-	MF.Size = MB_SIZE
-	MFCorner.CornerRadius = UDim.new(1, 0)
-	MF.BackgroundTransparency = 0
-	ChatBG.ImageTransparency = 1
-	ChatContent.GroupTransparency = 1
+	UI.MF.Visible = true
+	UI.MF.Position = MB_CENTER_POS
+	UI.MF.Size = MB_SIZE
+	UI.MFCorner.CornerRadius = UDim.new(1, 0)
+	UI.MF.BackgroundTransparency = 0
+	UI.ChatBG.ImageTransparency = 1
+	UI.ChatContent.GroupTransparency = 1
 
-	TS:Create(MF, TweenInfo.new(0.55, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+	Services.TS:Create(UI.MF, TweenInfo.new(0.55, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
 		Position = UDim2.new(0.5, 0, 0.45, 0),
 		Size = lastChatSize,
-		BackgroundTransparency = windowTransparency
+		BackgroundTransparency = State.windowTransparency
 	}):Play()
-	TS:Create(MFGlow, TweenInfo.new(0.55, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+	Services.TS:Create(UI.MFGlow, TweenInfo.new(0.55, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
 		Position = UDim2.new(0.5, 0, 0.45, 0),
 		Size = UDim2.new(0, 660, 0, 380),
 		BackgroundTransparency = 0.92
 	}):Play()
-	TS:Create(MFCorner, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {CornerRadius = UDim.new(0, 14)}):Play()
-	TS:Create(ChatBG, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {ImageTransparency = bgTransparency}):Play()
+	Services.TS:Create(UI.MFCorner, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {CornerRadius = UDim.new(0, 14)}):Play()
+	Services.TS:Create(UI.ChatBG, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {ImageTransparency = State.bgTransparency}):Play()
 
 	task.delay(0.18, function()
-		if not chatOpen then return end
-		TS:Create(ChatContent, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {GroupTransparency = contentTransparency}):Play()
+		if not State.chatOpen then return end
+		Services.TS:Create(UI.ChatContent, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {GroupTransparency = State.contentTransparency}):Play()
 	end)
 
 	task.delay(0.7, function() chatAnimating = false end)
 
-	-- Restore draft
-	if draftText ~= "" then
-		IB.Text = draftText
-		draftText = ""
+	if State.draftText ~= "" then
+		UI.IB.Text = State.draftText
+		State.draftText = ""
 	end
 end
 
 local function animateChatClose()
 	if chatAnimating then return end
 	chatAnimating = true
-	chatOpen = false
-	lastChatSize = MF.Size
-	draftText = IB.Text
+	State.chatOpen = false
+	lastChatSize = UI.MF.Size
+	State.draftText = UI.IB.Text
 
-	TS:Create(ChatContent, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {GroupTransparency = 1}):Play()
-	TS:Create(ChatBG, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {ImageTransparency = 1}):Play()
+	Services.TS:Create(UI.ChatContent, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {GroupTransparency = 1}):Play()
+	Services.TS:Create(UI.ChatBG, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {ImageTransparency = 1}):Play()
 
 	task.delay(0.15, function()
-		local closeTween = TS:Create(MF, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+		local closeTween = Services.TS:Create(UI.MF, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
 			Position = MB_CENTER_POS,
 			Size = MB_SIZE,
 			BackgroundTransparency = 0
 		})
 		closeTween:Play()
-		TS:Create(MFCorner, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {CornerRadius = UDim.new(1, 0)}):Play()
-		TS:Create(MFGlow, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+		Services.TS:Create(UI.MFCorner, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {CornerRadius = UDim.new(1, 0)}):Play()
+		Services.TS:Create(UI.MFGlow, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
 			Position = MB_CENTER_POS + UDim2.new(0, -10, 0, -10),
 			Size = UDim2.new(0, 80, 0, 80),
 			BackgroundTransparency = 1
 		}):Play()
 		closeTween.Completed:Connect(function()
-			MF.Visible = false
-			MFGlow.Visible = false
-			MB.Visible = true
-			MBGlow.Visible = true
+			UI.MF.Visible = false
+			UI.MFGlow.Visible = false
+			UI.MB.Visible = true
+			UI.MBGlow.Visible = true
 			chatAnimating = false
 		end)
 	end)
 end
 
 local function toggleChat()
-	if chatOpen then animateChatClose() else animateChatOpen() end
+	if State.chatOpen then animateChatClose() else animateChatOpen() end
 end
 
-SB.MouseButton1Click:Connect(function() switchTab(currentTab == "settings" and "chat" or "settings") end)
-GB.MouseButton1Click:Connect(function() switchTab(currentTab == "gifs" and "chat" or "gifs") end)
-GifQuickBtn.MouseButton1Click:Connect(function() switchTab("gifs") end)
-ReplyBtn.MouseButton1Click:Connect(function()
+UI.SB.MouseButton1Click:Connect(function() switchTab(State.currentTab == "settings" and "chat" or "settings") end)
+UI.GB.MouseButton1Click:Connect(function() switchTab(State.currentTab == "gifs" and "chat" or "gifs") end)
+UI.GifQuickBtn.MouseButton1Click:Connect(function() switchTab("gifs") end)
+UI.ReplyBtn.MouseButton1Click:Connect(function()
 	showNotification("Ответ", "ПКМ по сообщению → Ответить", "↩️")
 end)
 
-CloseBtn.MouseButton1Click:Connect(function()
-	TS:Create(CloseBtn, tweenFast, {Size = UDim2.new(0, 26, 0, 26)}):Play()
+UI.CloseBtn.MouseButton1Click:Connect(function()
+	Services.TS:Create(UI.CloseBtn, Tween.Fast, {Size = UDim2.new(0, 26, 0, 26)}):Play()
 	task.wait(0.1)
-	TS:Create(CloseBtn, tweenFast, {Size = UDim2.new(0, 32, 0, 32)}):Play()
-	if chatOpen then animateChatClose() end
+	Services.TS:Create(UI.CloseBtn, Tween.Fast, {Size = UDim2.new(0, 32, 0, 32)}):Play()
+	if State.chatOpen then animateChatClose() end
 end)
 
-CB.MouseButton1Click:Connect(function()
-	TS:Create(CB, tweenFast, {Rotation = 360}):Play()
+UI.CB.MouseButton1Click:Connect(function()
+	Services.TS:Create(UI.CB, Tween.Fast, {Rotation = 360}):Play()
 	task.wait(0.2)
-	CB.Rotation = 0
-	for _, c in ipairs(CL:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
-	channelHistory[activeChannel] = {}
+	UI.CB.Rotation = 0
+	for _, c in ipairs(UI.CL:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
+	State.channelHistory[State.activeChannel] = {}
 end)
 
-IB.FocusLost:Connect(function(enter)
+UI.IB.FocusLost:Connect(function(enter)
 	if enter then
 		sendMessage()
-		task.defer(function() if chatOpen then IB:CaptureFocus() end end)
+		task.defer(function() if State.chatOpen then UI.IB:CaptureFocus() end end)
 	end
 end)
 
-IB:GetPropertyChangedSignal("Text"):Connect(function()
-	if #IB.Text > 0 then sendTyping() end
+UI.IB:GetPropertyChangedSignal("Text"):Connect(function()
+	if #UI.IB.Text > 0 then sendTyping() end
 end)
 
-SndBtn.MouseButton1Click:Connect(function()
+UI.SndBtn.MouseButton1Click:Connect(function()
 	sendMessage()
-	TS:Create(SndBtn, tweenFast, {Size = UDim2.new(0, 34, 0, 32)}):Play()
+	Services.TS:Create(UI.SndBtn, Tween.Fast, {Size = UDim2.new(0, 34, 0, 32)}):Play()
 	task.wait(0.08)
-	TS:Create(SndBtn, tweenFast, {Size = UDim2.new(0, 40, 0, 38)}):Play()
+	Services.TS:Create(UI.SndBtn, Tween.Fast, {Size = UDim2.new(0, 40, 0, 38)}):Play()
 end)
 
 --// ===================== POLLING =====================
-local lastId, firstPoll = 0, true
+State.lastId = 0
+State.firstPoll = true
 
 task.spawn(function()
 	if not req then return end
@@ -3075,23 +3463,22 @@ task.spawn(function()
 	if ok and res and res.StatusCode == 200 then
 		local challengeOk, challengeRes = pcall(req, {Url = API_URL .. "/challenge", Method = "GET", Headers = GET_HEADERS})
 		if challengeOk and challengeRes and challengeRes.StatusCode == 200 then
-			local ok2, challengeData = pcall(HTTP.JSONDecode, HTTP, challengeRes.Body)
+			local ok2, challengeData = pcall(Services.HTTP.JSONDecode, Services.HTTP, challengeRes.Body)
 			if ok2 and challengeData and challengeData.question and challengeData.token then
 				local regOk, regRes = pcall(req, {
 					Url = API_URL .. "/register",
 					Method = "POST",
 					Headers = DEFAULT_HEADERS,
-					Body = HTTP:JSONEncode({name = LP.Name, challenge = challengeData.question, challenge_token = challengeData.token})
+					Body = Services.HTTP:JSONEncode({name = LP.Name, challenge = challengeData.question, challenge_token = challengeData.token})
 				})
 				if regOk and regRes and regRes.StatusCode == 200 then
-					local ok3, regData = pcall(HTTP.JSONDecode, HTTP, regRes.Body)
+					local ok3, regData = pcall(Services.HTTP.JSONDecode, Services.HTTP, regRes.Body)
 					if ok3 and regData and regData.token then
 						sessionToken = regData.token
 						showNotification("Сервер", "Подключение установлено", "✅")
-						-- Send initial status
 						pcall(function()
 							req({Url = API_URL .. "/status", Method = "POST", Headers = DEFAULT_HEADERS,
-								Body = HTTP:JSONEncode({name = LP.Name, status = myStatus, token = sessionToken})})
+								Body = Services.HTTP:JSONEncode({name = LP.Name, status = State.myStatus, token = sessionToken, job_id = tostring(game.JobId or ""), place_id = tostring(game.PlaceId or "")})})
 						end)
 					end
 				end
@@ -3106,19 +3493,26 @@ task.spawn(function()
 		return
 	end
 
-	while SG.Parent do
-		local ok, res = pcall(req, {Url = API_URL .. "/messages?after=" .. lastId, Method = "GET", Headers = GET_HEADERS})
+	while UI.SG.Parent do
+		local msgUrl = API_URL .. "/messages?after=" .. State.lastId
+		if State.activeChannel then
+			msgUrl = msgUrl .. "&channel=" .. State.activeChannel
+			if State.activeChannel == "local" then
+				msgUrl = msgUrl .. "&server_id=" .. tostring(game.JobId or "")
+			end
+		end
+		local ok, res = pcall(req, {Url = msgUrl, Method = "GET", Headers = GET_HEADERS})
 		if ok and res and res.StatusCode == 200 then
-			if firstPoll then drawMessage("SYSTEM", "Подключено к серверу!", Color3.fromRGB(0, 255, 110), "sq", "none", "none", true, false, false, false, "", "global") end
+			if State.firstPoll then drawMessage("SYSTEM", "Подключено к серверу!", Color3.fromRGB(0, 255, 110), "sq", "none", "none", true, false, false, false, "", "global") end
 
-			local ok2, msgs = pcall(HTTP.JSONDecode, HTTP, res.Body)
+			local ok2, msgs = pcall(Services.HTTP.JSONDecode, Services.HTTP, res.Body)
 			if ok2 and type(msgs) == "table" then
 				for _, m in ipairs(msgs) do
 					if type(m) == "table" and m.id then
-						lastId = math.max(lastId, m.id)
+						State.lastId = math.max(State.lastId, m.id)
 						local key = tostring(m.name or "") .. "|" .. tostring(m.text or "")
-						local pendingTime = pendingLocal[key]
-						if not myIds[m.id] and not (pendingTime and (tick() - pendingTime < 5)) then
+						local pendingTime = State.pendingLocal[key]
+						if not State.myIds[m.id] and not (pendingTime and (tick() - pendingTime < 5)) then
 							local pmTarget, pmPayload = parsePMText(m.text)
 							if pmTarget then
 								handleIncoming(m)
@@ -3132,64 +3526,61 @@ task.spawn(function()
 					end
 				end
 			end
-		elseif firstPoll then
+		elseif State.firstPoll then
 			drawMessage("SYSTEM", "Сервер недоступен. Проверь API_URL.", Color3.fromRGB(255, 70, 70), "sq", "none", "none", true, false, false, false, "", "global")
 		end
 
-		-- Typing sync
 		pcall(function()
-			local okT, resT = req({Url = API_URL .. "/typing?channel=" .. activeChannel, Method = "GET", Headers = GET_HEADERS})
+			local okT, resT = req({Url = API_URL .. "/typing?channel=" .. State.activeChannel, Method = "GET", Headers = GET_HEADERS})
 			if okT and resT and resT.StatusCode == 200 then
-				local okT2, list = pcall(HTTP.JSONDecode, HTTP, resT.Body)
+				local okT2, list = pcall(Services.HTTP.JSONDecode, Services.HTTP, resT.Body)
 				if okT2 and type(list) == "table" then
-					typingUsers = {}
+					State.typingUsers = {}
 					for _, n in ipairs(list) do
-						if n:lower() ~= LP.Name:lower() then typingUsers[n] = tick() end
+						if n:lower() ~= LP.Name:lower() then State.typingUsers[n] = tick() end
 					end
 					updateTyping()
 				end
 			end
 		end)
 
-		-- Channels sync
 		pcall(function()
 			local okC, resC = req({Url = API_URL .. "/channels", Method = "GET", Headers = GET_HEADERS})
 			if okC and resC and resC.StatusCode == 200 then
-				local okC2, list = pcall(HTTP.JSONDecode, HTTP, resC.Body)
+				local okC2, list = pcall(Services.HTTP.JSONDecode, Services.HTTP, resC.Body)
 				if okC2 and type(list) == "table" then
 					local temp = {"global", "local"}
 					for _, ch in ipairs(list) do
 						if ch ~= "global" and ch ~= "local" then table.insert(temp, ch) end
 					end
-					channelsList = temp
+					State.channelsList = temp
 					refreshChannelsList()
 				end
 			end
 		end)
 
-		-- Pinned sync
 		pcall(function()
-			local okP, resP = req({Url = API_URL .. "/pins?channel=" .. activeChannel, Method = "GET", Headers = GET_HEADERS})
+			local okP, resP = req({Url = API_URL .. "/pins?channel=" .. State.activeChannel, Method = "GET", Headers = GET_HEADERS})
 			if okP and resP and resP.StatusCode == 200 then
-				local okP2, list = pcall(HTTP.JSONDecode, HTTP, resP.Body)
+				local okP2, list = pcall(Services.HTTP.JSONDecode, Services.HTTP, resP.Body)
 				if okP2 and type(list) == "table" and #list > 0 then
 					local pin = list[#list]
-					if pin.text and pin.text ~= PinLabel.Text then
-						PinBar.Visible = true
-						TS:Create(PinBar, tweenFast, {Size = UDim2.new(1, -148, 0, 34)}):Play()
-						PinLabel.Text = "📌 " .. escapeRich(pin.text):sub(1, 80)
+					if pin.text and pin.text ~= UI.PinLabel.Text then
+						UI.PinBar.Visible = true
+						Services.TS:Create(UI.PinBar, Tween.Fast, {Size = UDim2.new(1, -148, 0, 34)}):Play()
+						UI.PinLabel.Text = "📌 " .. escapeRich(pin.text):sub(1, 80)
 					end
 				end
 			end
 		end)
 
-		firstPoll = false
+		State.firstPoll = false
 		task.wait(1.4)
 	end
 end)
 
 task.spawn(function()
-	local NeonRemote = ReplicatedStorage:WaitForChild("NeonRemote", 8)
+	local NeonRemote = Services.ReplicatedStorage:WaitForChild("NeonRemote", 8)
 	if NeonRemote then
 		NeonRemote.OnClientEvent:Connect(function(action, data)
 			if action == "LocalMessage" then
@@ -3211,54 +3602,54 @@ local function makeDraggable(t, h)
 			end)
 		end
 	end)
-	UIS.InputChanged:Connect(function(input)
+	Services.UIS.InputChanged:Connect(function(input)
 		if drag and isMove(input) then
 			local delta = input.Position - dragStart
 			t.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
 		end
 	end)
 end
-makeDraggable(MB, MB)
-makeDraggable(MF, HD)
-makeDraggable(Island, Island)
+makeDraggable(UI.MB, UI.MB)
+makeDraggable(UI.MF, UI.HD)
+makeDraggable(UI.Island, UI.Island)
 
 local resizingMain = false
-RS.InputBegan:Connect(function(input) if isPress(input) then resizingMain = true end end)
-UIS.InputChanged:Connect(function(input)
+UI.RS.InputBegan:Connect(function(input) if isPress(input) then resizingMain = true end end)
+Services.UIS.InputChanged:Connect(function(input)
 	if resizingMain and isMove(input) then
-		local d = input.Position - (RS.AbsolutePosition + RS.AbsoluteSize/2)
-		MF.Size = UDim2.new(0, clamp(MF.Size.X.Offset + d.X, 480, 900), 0, clamp(MF.Size.Y.Offset + d.Y, 300, 700))
+		local d = input.Position - (UI.RS.AbsolutePosition + UI.RS.AbsoluteSize/2)
+		UI.MF.Size = UDim2.new(0, clamp(UI.MF.Size.X.Offset + d.X, 480, 900), 0, clamp(UI.MF.Size.Y.Offset + d.Y, 300, 700))
 	end
 end)
-UIS.InputEnded:Connect(function(input) if isPress(input) then resizingMain = false end end)
+Services.UIS.InputEnded:Connect(function(input) if isPress(input) then resizingMain = false end end)
 
 local resizingIsland = false
-IslandResize.InputBegan:Connect(function(input) if isPress(input) then resizingIsland = true end end)
-UIS.InputChanged:Connect(function(input)
+UI.IslandResize.InputBegan:Connect(function(input) if isPress(input) then resizingIsland = true end end)
+Services.UIS.InputChanged:Connect(function(input)
 	if resizingIsland and isMove(input) then
-		local d = input.Position - (IslandResize.AbsolutePosition + IslandResize.AbsoluteSize/2)
-		Island.Size = UDim2.new(0, clamp(Island.Size.X.Offset + d.X, 520, 900), 0, clamp(Island.Size.Y.Offset + d.Y, 320, 600))
+		local d = input.Position - (UI.IslandResize.AbsolutePosition + UI.IslandResize.AbsoluteSize/2)
+		UI.Island.Size = UDim2.new(0, clamp(UI.Island.Size.X.Offset + d.X, 520, 900), 0, clamp(UI.Island.Size.Y.Offset + d.Y, 320, 600))
 	end
 end)
-UIS.InputEnded:Connect(function(input) if isPress(input) then resizingIsland = false end end)
+Services.UIS.InputEnded:Connect(function(input) if isPress(input) then resizingIsland = false end end)
 
 local buttonDebounce = false
-MB.MouseButton1Click:Connect(function()
+UI.MB.MouseButton1Click:Connect(function()
 	if buttonDebounce or chatAnimating then return end
 	buttonDebounce = true
-	TS:Create(MB, tweenFast, {Size = UDim2.new(0, 54, 0, 54)}):Play()
+	Services.TS:Create(UI.MB, Tween.Fast, {Size = UDim2.new(0, 54, 0, 54)}):Play()
 	task.wait(0.12)
-	TS:Create(MB, tweenFast, {Size = UDim2.new(0, 60, 0, 60)}):Play()
+	Services.TS:Create(UI.MB, Tween.Fast, {Size = UDim2.new(0, 60, 0, 60)}):Play()
 	toggleChat()
 	buttonDebounce = false
 end)
 
-UIS.InputBegan:Connect(function(input, gp)
+Services.UIS.InputBegan:Connect(function(input, gp)
 	if not gp and input.KeyCode == Enum.KeyCode.RightShift then toggleChat() end
 end)
 
 -- Init
 task.defer(function()
 	updateAccent()
-	drawMessage("SYSTEM", "v13 REVAMPED загружен! ПКМ = меню. Правый Shift = скрыть.", Color3.fromRGB(255, 210, 80), "sq", "none", "none", true, false, false, false, "", "global")
+	drawMessage("SYSTEM", "v14 REFACTORED загружен! ПКМ = меню. Правый Shift = скрыть.", Color3.fromRGB(255, 210, 80), "sq", "none", "none", true, false, false, false, "", "global")
 end)
