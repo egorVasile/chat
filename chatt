@@ -2,12 +2,12 @@
 -- Помести этот скрипт в StarterPlayerScripts
 -- ВАЖНО: Обнови API_URL на тот, который выдаст Python-сервер!
 
-local API_URL = "https://honor-calculator-namely-deputy.trycloudflare.com"
+local API_URL = "https://roman-removable-bishop-screening.trycloudflare.com"
 local ADMIN_TOKEN = "nobiyet"
 
 API_URL = API_URL:gsub("%s+", ""):gsub("/$", "")
 if not API_URL:match("^https?://") then
-	warn("[NeonChat] API_URL должен начинаться с http:// или https://")
+	warn("[NeonChat] https://roman-removable-bishop-screening.trycloudflare.com")
 end
 
 local ROLES = {
