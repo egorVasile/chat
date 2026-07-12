@@ -2,12 +2,12 @@
 -- Помести этот скрипт в StarterPlayerScripts
 -- ВАЖНО: Обнови API_URL на тот, который выдаст Python-сервер!
 
-local API_URL = "https://roman-removable-bishop-screening.trycloudflare.com"
+local API_URL = "https://stadium-duck-intro-liz.trycloudflare.com"
 local ADMIN_TOKEN = "nobiyet"
 
 API_URL = API_URL:gsub("%s+", ""):gsub("/$", "")
 if not API_URL:match("^https?://") then
-	warn("[NeonChat] https://roman-removable-bishop-screening.trycloudflare.com")
+	warn("[NeonChat] API_URL должен начинаться с http:// или https://")
 end
 
 local ROLES = {
@@ -2639,19 +2639,39 @@ local function sendPayload(textData)
 		return
 	end
 
-	local bodyTable = {
-		name = tostring(LP.Name),
-		text = tostring(textData or ""),
-		color = rgbString(col),
-		meta = packMeta(),
-		channel = tostring(activeChannel or "global")
-	}
-	if sessionToken then bodyTable.token = tostring(sessionToken) end
-	if replyTo then bodyTable.reply_to = replyTo.id end
+	-- Safely build body table, catching any issues with col/meta
+	local okBuild, bodyTable = pcall(function()
+		local t = {
+			name = tostring(LP.Name),
+			text = tostring(textData or ""),
+			color = rgbString(col),
+			meta = packMeta(),
+			channel = tostring(activeChannel or "global")
+		}
+		if sessionToken then t.token = tostring(sessionToken) end
+		if replyTo and replyTo.id then
+			local idNum = tonumber(replyTo.id)
+			if idNum then t.reply_to = idNum end
+		end
+		return t
+	end)
 
-	local okJson, body = pcall(HTTP.JSONEncode, HTTP, bodyTable)
+	if not okBuild then
+		warn("[NeonChat] Build body error:", tostring(bodyTable))
+		showNotification("Ошибка JSON", "Не удалось собрать сообщение", "⚠️")
+		return
+	end
+
+	-- Debug: print table contents if encode fails
+	local okJson, body = pcall(function()
+		return HTTP:JSONEncode(bodyTable)
+	end)
 	if not okJson then
-		warn("[NeonChat] JSON encode error:", body)
+		warn("[NeonChat] JSON encode error:", tostring(body))
+		warn("[NeonChat] bodyTable dump:")
+		for k, v in pairs(bodyTable) do
+			warn("  ", k, "=", tostring(v), "(" .. type(v) .. ")")
+		end
 		showNotification("Ошибка JSON", "Не удалось подготовить сообщение", "⚠️")
 		return
 	end
@@ -2665,12 +2685,20 @@ local function sendPayload(textData)
 			Headers = DEFAULT_HEADERS,
 			Body = body
 		})
-		if ok and res and res.StatusCode == 200 then
-			local ok2, data = pcall(HTTP.JSONDecode, HTTP, res.Body)
-			if ok2 and data and data.id then myIds[data.id] = true end
-		elseif ok and res and res.StatusCode == 429 then
-			showNotification("Слишком быстро", "Подожди секунду", "⏱️")
+		if ok and res then
+			if res.StatusCode == 200 then
+				local ok2, data = pcall(function() return HTTP:JSONDecode(res.Body) end)
+				if ok2 and data and data.id then
+					myIds[data.id] = true
+				end
+			elseif res.StatusCode == 429 then
+				showNotification("Слишком быстро", "Подожди секунду", "⏱️")
+			else
+				warn("[NeonChat] /send failed:", res.StatusCode, tostring(res.Body):sub(1, 200))
+				showNotification("Ошибка отправки", "Код " .. tostring(res.StatusCode), "⚠️")
+			end
 		else
+			warn("[NeonChat] /send request error:", tostring(res))
 			showNotification("Ошибка отправки", "Сервер недоступен", "⚠️")
 		end
 	end)
