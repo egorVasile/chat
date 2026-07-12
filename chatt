@@ -2,8 +2,8 @@
 -- Помести этот скрипт в StarterPlayerScripts -> StarterPlayerScripts
 -- ВАЖНО: Обнови API_URL на тот, который выдаст Python-сервер через Cloudflare!
 
-local API_URL = "https://ВСТАВЬ_СВОЙ_URL.trycloudflare.com"
-local ADMIN_TOKEN = "NeonEgorPrivate2025" -- должен совпадать с сервером
+local API_URL = "https://honor-calculator-namely-deputy.trycloudflare.com"
+local ADMIN_TOKEN = "nobiyet" -- должен совпадать с сервером
 
 -- Нормализация URL: убираем пробелы и слэш в конце
 API_URL = API_URL:gsub("%s+", ""):gsub("/$", "")
