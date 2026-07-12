@@ -75,7 +75,7 @@ local function clamp(n, a, b) return math.min(math.max(n, a), b) end
 local old = PlayerGui:FindFirstChild("NeonFolderChat")
 if old then old:Destroy() end
 
-local SG = Instance.new("ScreenGui")
+SG = Instance.new("ScreenGui")
 SG.Name = "NeonFolderChat"
 SG.ResetOnSpawn = false
 SG.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -151,12 +151,12 @@ if savedSettings.bgTrans ~= nil then bgTransparency = savedSettings.bgTrans end
 if savedSettings.myStatus then myStatus = savedSettings.myStatus end
 
 --// ===================== NOTIFICATIONS =====================
-local NotifFrame = Instance.new("Frame", SG)
+NotifFrame = Instance.new("Frame", SG)
 NotifFrame.Name = "Notifications"
 NotifFrame.Size = UDim2.new(0, 300, 1, -20)
 NotifFrame.Position = UDim2.new(1, -315, 0, 10)
 NotifFrame.BackgroundTransparency = 1
-local NotifLayout = Instance.new("UIListLayout", NotifFrame)
+NotifLayout = Instance.new("UIListLayout", NotifFrame)
 NotifLayout.SortOrder = Enum.SortOrder.LayoutOrder
 NotifLayout.Padding = UDim.new(0, 8)
 NotifLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
@@ -239,7 +239,7 @@ local function showNotification(title, desc, icon)
 end
 
 --// ===================== OPEN BUTTON =====================
-local MB = Instance.new("TextButton", SG)
+MB = Instance.new("TextButton", SG)
 MB.Name = "OpenChatButton"
 MB.Size = UDim2.new(0, 60, 0, 60)
 MB.Position = UDim2.new(0.05, 0, 0.5, -30)
@@ -250,11 +250,11 @@ MB.TextColor3 = col
 MB.Font = Enum.Font.GothamBold
 MB.AutoButtonColor = false
 Instance.new("UICorner", MB).CornerRadius = UDim.new(1, 0)
-local MBStroke = Instance.new("UIStroke", MB)
+MBStroke = Instance.new("UIStroke", MB)
 MBStroke.Color = col
 MBStroke.Thickness = 2.5
 
-local MBBadge = Instance.new("TextLabel", MB)
+MBBadge = Instance.new("TextLabel", MB)
 MBBadge.Size = UDim2.new(0, 20, 0, 20)
 MBBadge.Position = UDim2.new(1, -12, 0, -4)
 MBBadge.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
@@ -265,7 +265,7 @@ MBBadge.TextSize = 11
 MBBadge.Visible = false
 Instance.new("UICorner", MBBadge).CornerRadius = UDim.new(1, 0)
 
-local MBGlow = Instance.new("Frame", SG)
+MBGlow = Instance.new("Frame", SG)
 MBGlow.Name = "OpenButtonGlow"
 MBGlow.Size = UDim2.new(0, 70, 0, 70)
 MBGlow.Position = MB.Position + UDim2.new(0, -5, 0, -5)
@@ -290,7 +290,7 @@ local function updateBadge()
 end
 
 --// ===================== MAIN WINDOW =====================
-local MFGlow = Instance.new("Frame", SG)
+MFGlow = Instance.new("Frame", SG)
 MFGlow.Name = "MainChatGlow"
 MFGlow.AnchorPoint = Vector2.new(0.5, 0.5)
 MFGlow.Size = UDim2.new(0, 660, 0, 380)
@@ -301,7 +301,7 @@ MFGlow.ZIndex = 0
 Instance.new("UICorner", MFGlow).CornerRadius = UDim.new(0, 20)
 TS:Create(MFGlow, TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {BackgroundTransparency = 0.85}):Play()
 
-local MF = Instance.new("Frame", SG)
+MF = Instance.new("Frame", SG)
 MF.Name = "MainChat"
 MF.AnchorPoint = Vector2.new(0.5, 0.5)
 MF.Size = UDim2.new(0, 640, 0, 360)
@@ -310,10 +310,10 @@ MF.BackgroundColor3 = Color3.fromRGB(15, 15, 22)
 MF.BackgroundTransparency = windowTransparency
 MF.ClipsDescendants = true
 MF.Visible = false
-local MFCorner = Instance.new("UICorner", MF)
+MFCorner = Instance.new("UICorner", MF)
 MFCorner.CornerRadius = UDim.new(0, 14)
 
-local ChatBG = Instance.new("ImageLabel", MF)
+ChatBG = Instance.new("ImageLabel", MF)
 ChatBG.Name = "CustomBackground"
 ChatBG.Size = UDim2.new(1, 0, 1, 0)
 ChatBG.BackgroundTransparency = 1
@@ -322,7 +322,7 @@ ChatBG.ScaleType = Enum.ScaleType.Crop
 ChatBG.ZIndex = 0
 Instance.new("UICorner", ChatBG).CornerRadius = UDim.new(0, 14)
 
-local ChatContent = Instance.new("CanvasGroup", MF)
+ChatContent = Instance.new("CanvasGroup", MF)
 ChatContent.Name = "ChatContent"
 ChatContent.Size = UDim2.new(1, 0, 1, 0)
 ChatContent.BackgroundTransparency = 1
@@ -330,7 +330,7 @@ ChatContent.GroupTransparency = 0
 ChatContent.ZIndex = 1
 
 --// ===================== HEADER =====================
-local HD = Instance.new("Frame", ChatContent)
+HD = Instance.new("Frame", ChatContent)
 HD.Name = "Header"
 HD.Size = UDim2.new(1, 0, 0, 44)
 HD.Position = UDim2.new(0, 0, 0, 0)
@@ -339,7 +339,7 @@ HD.BackgroundTransparency = 0.08
 HD.BorderSizePixel = 0
 HD.ZIndex = 5
 Instance.new("UICorner", HD).CornerRadius = UDim.new(0, 14)
-local HeaderFix = Instance.new("Frame", HD)
+HeaderFix = Instance.new("Frame", HD)
 HeaderFix.Size = UDim2.new(1, 0, 0, 12)
 HeaderFix.Position = UDim2.new(0, 0, 1, -12)
 HeaderFix.BorderSizePixel = 0
@@ -347,7 +347,7 @@ HeaderFix.BackgroundColor3 = HD.BackgroundColor3
 HeaderFix.BackgroundTransparency = HD.BackgroundTransparency
 HeaderFix.ZIndex = 5
 
-local HT = Instance.new("TextLabel", HD)
+HT = Instance.new("TextLabel", HD)
 HT.Size = UDim2.new(1, -240, 1, 0)
 HT.Position = UDim2.new(0, 16, 0, 0)
 HT.BackgroundTransparency = 1
@@ -358,7 +358,7 @@ HT.TextSize = 14
 HT.TextXAlignment = Enum.TextXAlignment.Left
 HT.ZIndex = 6
 
-local SearchBox = Instance.new("TextBox", HD)
+SearchBox = Instance.new("TextBox", HD)
 SearchBox.Name = "SearchBox"
 SearchBox.Size = UDim2.new(0, 140, 0, 28)
 SearchBox.Position = UDim2.new(0, 220, 0, 8)
@@ -414,7 +414,7 @@ CloseBtn.MouseLeave:Connect(function()
 end)
 
 --// ===================== SCROLLING MESSAGES =====================
-local CL = Instance.new("ScrollingFrame", ChatContent)
+CL = Instance.new("ScrollingFrame", ChatContent)
 CL.Name = "Messages"
 CL.Size = UDim2.new(1, -132, 1, -148)
 CL.Position = UDim2.new(0, 12, 0, 54)
@@ -424,7 +424,7 @@ CL.ScrollBarThickness = 4
 CL.ScrollBarImageColor3 = col
 CL.CanvasSize = UDim2.new(0, 0, 0, 0)
 CL.ZIndex = 2
-local LL = Instance.new("UIListLayout", CL)
+LL = Instance.new("UIListLayout", CL)
 LL.SortOrder = Enum.SortOrder.LayoutOrder
 LL.Padding = UDim.new(0, 8)
 LL:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
@@ -433,7 +433,7 @@ LL:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 end)
 
 --// ===================== PINNED MESSAGE BAR =====================
-local PinBar = Instance.new("Frame", ChatContent)
+PinBar = Instance.new("Frame", ChatContent)
 PinBar.Name = "PinBar"
 PinBar.Size = UDim2.new(1, -148, 0, 0)
 PinBar.Position = UDim2.new(0, 12, 0, 48)
@@ -444,10 +444,10 @@ PinBar.ClipsDescendants = true
 PinBar.ZIndex = 3
 PinBar.Visible = false
 Instance.new("UICorner", PinBar).CornerRadius = UDim.new(0, 8)
-local PinStroke = Instance.new("UIStroke", PinBar)
+PinStroke = Instance.new("UIStroke", PinBar)
 PinStroke.Color = Color3.fromRGB(255, 200, 80)
 PinStroke.Thickness = 1.2
-local PinLabel = Instance.new("TextLabel", PinBar)
+PinLabel = Instance.new("TextLabel", PinBar)
 PinLabel.Size = UDim2.new(1, -28, 1, -8)
 PinLabel.Position = UDim2.new(0, 8, 0, 4)
 PinLabel.BackgroundTransparency = 1
@@ -457,7 +457,7 @@ PinLabel.Font = Enum.Font.GothamBold
 PinLabel.TextSize = 12
 PinLabel.TextWrapped = true
 PinLabel.TextXAlignment = Enum.TextXAlignment.Left
-local PinClose = Instance.new("TextButton", PinBar)
+PinClose = Instance.new("TextButton", PinBar)
 PinClose.Size = UDim2.new(0, 20, 0, 20)
 PinClose.Position = UDim2.new(1, -24, 0, 4)
 PinClose.BackgroundTransparency = 1
@@ -468,14 +468,14 @@ PinClose.TextSize = 14
 PinClose.ZIndex = 4
 
 --// ===================== TYPING INDICATOR =====================
-local TypingBar = Instance.new("Frame", ChatContent)
+TypingBar = Instance.new("Frame", ChatContent)
 TypingBar.Name = "TypingBar"
 TypingBar.Size = UDim2.new(1, -148, 0, 0)
 TypingBar.Position = UDim2.new(0, 12, 1, -96)
 TypingBar.BackgroundTransparency = 1
 TypingBar.ClipsDescendants = true
 TypingBar.ZIndex = 3
-local TypingLabel = Instance.new("TextLabel", TypingBar)
+TypingLabel = Instance.new("TextLabel", TypingBar)
 TypingLabel.Size = UDim2.new(1, -10, 0, 18)
 TypingLabel.Position = UDim2.new(0, 5, 0, 0)
 TypingLabel.BackgroundTransparency = 1
@@ -509,7 +509,7 @@ local function updateTyping()
 end
 
 --// ===================== CHANNELS PANEL =====================
-local ChannelsPanel = Instance.new("ScrollingFrame", ChatContent)
+ChannelsPanel = Instance.new("ScrollingFrame", ChatContent)
 ChannelsPanel.Name = "ChannelsPanel"
 ChannelsPanel.Size = UDim2.new(0, 110, 1, -104)
 ChannelsPanel.Position = UDim2.new(1, -122, 0, 50)
@@ -519,7 +519,7 @@ ChannelsPanel.BorderSizePixel = 0
 ChannelsPanel.ScrollBarThickness = 2
 ChannelsPanel.ScrollBarImageColor3 = col
 ChannelsPanel.ZIndex = 2
-local ChanLayout = Instance.new("UIListLayout", ChannelsPanel)
+ChanLayout = Instance.new("UIListLayout", ChannelsPanel)
 ChanLayout.SortOrder = Enum.SortOrder.LayoutOrder
 ChanLayout.Padding = UDim.new(0, 5)
 ChanLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
@@ -527,14 +527,14 @@ ChanLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 end)
 
 --// ===================== BOTTOM BAR =====================
-local BB = Instance.new("Frame", ChatContent)
+BB = Instance.new("Frame", ChatContent)
 BB.Name = "BottomBar"
 BB.Size = UDim2.new(1, 0, 0, 58)
 BB.Position = UDim2.new(0, 0, 1, -58)
 BB.BackgroundTransparency = 1
 BB.ZIndex = 4
 
-local ReplyBanner = Instance.new("Frame", BB)
+ReplyBanner = Instance.new("Frame", BB)
 ReplyBanner.Name = "ReplyBanner"
 ReplyBanner.Size = UDim2.new(1, -24, 0, 0)
 ReplyBanner.Position = UDim2.new(0, 12, 0, -22)
@@ -545,7 +545,7 @@ ReplyBanner.ClipsDescendants = true
 ReplyBanner.ZIndex = 5
 ReplyBanner.Visible = false
 Instance.new("UICorner", ReplyBanner).CornerRadius = UDim.new(0, 8)
-local ReplyText = Instance.new("TextLabel", ReplyBanner)
+ReplyText = Instance.new("TextLabel", ReplyBanner)
 ReplyText.Size = UDim2.new(1, -30, 0, 20)
 ReplyText.Position = UDim2.new(0, 8, 0, 2)
 ReplyText.BackgroundTransparency = 1
@@ -555,7 +555,7 @@ ReplyText.Font = Enum.Font.Gotham
 ReplyText.TextSize = 11
 ReplyText.TextXAlignment = Enum.TextXAlignment.Left
 ReplyText.TextTruncate = Enum.TextTruncate.AtEnd
-local ReplyCancel = Instance.new("TextButton", ReplyBanner)
+ReplyCancel = Instance.new("TextButton", ReplyBanner)
 ReplyCancel.Size = UDim2.new(0, 20, 0, 20)
 ReplyCancel.Position = UDim2.new(1, -24, 0, 2)
 ReplyCancel.BackgroundTransparency = 1
@@ -565,7 +565,7 @@ ReplyCancel.Font = Enum.Font.GothamBold
 ReplyCancel.TextSize = 14
 ReplyCancel.ZIndex = 6
 
-local IB = Instance.new("TextBox", BB)
+IB = Instance.new("TextBox", BB)
 IB.Name = "Input"
 IB.Size = UDim2.new(1, -186, 0, 38)
 IB.Position = UDim2.new(0, 12, 0, 12)
@@ -582,7 +582,7 @@ IB.ZIndex = 5
 Instance.new("UICorner", IB).CornerRadius = UDim.new(0, 10)
 Instance.new("UIPadding", IB).PaddingLeft = UDim.new(0, 12)
 
-local SndBtn = Instance.new("TextButton", BB)
+SndBtn = Instance.new("TextButton", BB)
 SndBtn.Name = "Send"
 SndBtn.Size = UDim2.new(0, 40, 0, 38)
 SndBtn.Position = UDim2.new(1, -168, 0, 12)
@@ -597,7 +597,7 @@ Instance.new("UICorner", SndBtn).CornerRadius = UDim.new(0, 10)
 SndBtn.MouseEnter:Connect(function() TS:Create(SndBtn, tweenFast, {BackgroundColor3=col, TextColor3=Color3.new(0,0,0)}):Play() end)
 SndBtn.MouseLeave:Connect(function() TS:Create(SndBtn, tweenFast, {BackgroundColor3=Color3.fromRGB(30,30,42), TextColor3=col}):Play() end)
 
-local ReplyBtn = Instance.new("TextButton", BB)
+ReplyBtn = Instance.new("TextButton", BB)
 ReplyBtn.Size = UDim2.new(0, 36, 0, 38)
 ReplyBtn.Position = UDim2.new(1, -124, 0, 12)
 ReplyBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 42)
@@ -609,7 +609,7 @@ Instance.new("UICorner", ReplyBtn).CornerRadius = UDim.new(0, 10)
 ReplyBtn.MouseEnter:Connect(function() TS:Create(ReplyBtn, tweenFast, {BackgroundColor3=col}):Play() end)
 ReplyBtn.MouseLeave:Connect(function() TS:Create(ReplyBtn, tweenFast, {BackgroundColor3=Color3.fromRGB(30,30,42)}):Play() end)
 
-local GifQuickBtn = Instance.new("TextButton", BB)
+GifQuickBtn = Instance.new("TextButton", BB)
 GifQuickBtn.Size = UDim2.new(0, 36, 0, 38)
 GifQuickBtn.Position = UDim2.new(1, -82, 0, 12)
 GifQuickBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 42)
@@ -621,7 +621,7 @@ Instance.new("UICorner", GifQuickBtn).CornerRadius = UDim.new(0, 10)
 GifQuickBtn.MouseEnter:Connect(function() TS:Create(GifQuickBtn, tweenFast, {BackgroundColor3=col}):Play() end)
 GifQuickBtn.MouseLeave:Connect(function() TS:Create(GifQuickBtn, tweenFast, {BackgroundColor3=Color3.fromRGB(30,30,42)}):Play() end)
 
-local RS = Instance.new("ImageLabel", ChatContent)
+RS = Instance.new("ImageLabel", ChatContent)
 RS.Name = "ResizeHandle"
 RS.Size = UDim2.new(0, 16, 0, 16)
 RS.Position = UDim2.new(1, -20, 1, -20)
@@ -631,7 +631,7 @@ RS.ImageColor3 = col
 RS.ZIndex = 10
 
 --// ===================== GIF PANEL =====================
-local GF = Instance.new("ScrollingFrame", ChatContent)
+GF = Instance.new("ScrollingFrame", ChatContent)
 GF.Name = "GifPanel"
 GF.Size = UDim2.new(1, -132, 1, -104)
 GF.Position = UDim2.new(-1, 0, 0, 50)
@@ -642,7 +642,7 @@ GF.ScrollBarThickness = 4
 GF.ScrollBarImageColor3 = col
 GF.CanvasSize = UDim2.new(0, 0, 0, 0)
 GF.ZIndex = 3
-local GL = Instance.new("UIGridLayout", GF)
+GL = Instance.new("UIGridLayout", GF)
 GL.CellSize = UDim2.new(0, 90, 0, 90)
 GL.CellPadding = UDim2.new(0, 12, 0, 12)
 GL.SortOrder = Enum.SortOrder.LayoutOrder
@@ -651,7 +651,7 @@ GL:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 end)
 
 --// ===================== SETTINGS PANEL =====================
-local SettingsGroup = Instance.new("CanvasGroup", ChatContent)
+SettingsGroup = Instance.new("CanvasGroup", ChatContent)
 SettingsGroup.Name = "SettingsGroup"
 SettingsGroup.Size = UDim2.new(1, -132, 1, -104)
 SettingsGroup.Position = UDim2.new(1, 0, 0, 50)
@@ -660,7 +660,7 @@ SettingsGroup.GroupTransparency = 0
 SettingsGroup.Visible = false
 SettingsGroup.ZIndex = 4
 
-local SettingsBG = Instance.new("Frame", SettingsGroup)
+SettingsBG = Instance.new("Frame", SettingsGroup)
 SettingsBG.Name = "SettingsBG"
 SettingsBG.Size = UDim2.new(1, 0, 1, 0)
 SettingsBG.BackgroundColor3 = Color3.fromRGB(15, 15, 22)
@@ -669,7 +669,7 @@ SettingsBG.BorderSizePixel = 0
 Instance.new("UICorner", SettingsBG).CornerRadius = UDim.new(0, 14)
 
 -- Settings Tabs
-local SettingsTabs = Instance.new("Frame", SettingsGroup)
+SettingsTabs = Instance.new("Frame", SettingsGroup)
 SettingsTabs.Name = "SettingsTabs"
 SettingsTabs.Size = UDim2.new(1, -20, 0, 34)
 SettingsTabs.Position = UDim2.new(0, 10, 0, 10)
@@ -703,7 +703,7 @@ local settingsTabButtons = {TabNick, TabText, TabEffects, TabChat, TabSystem}
 local currentSettingsTab = "nick"
 
 -- Settings Content Container
-local SettingsContent = Instance.new("Frame", SettingsGroup)
+SettingsContent = Instance.new("Frame", SettingsGroup)
 SettingsContent.Name = "SettingsContent"
 SettingsContent.Size = UDim2.new(1, -20, 1, -54)
 SettingsContent.Position = UDim2.new(0, 10, 0, 50)
@@ -733,7 +733,7 @@ local ChatContentSettings = makeContentFrame("ChatContentSettings")
 local SystemContent = makeContentFrame("SystemContent")
 
 -- Effects Sub-tabs
-local EffectsSubTabs = Instance.new("Frame", EffectsContent)
+EffectsSubTabs = Instance.new("Frame", EffectsContent)
 EffectsSubTabs.Size = UDim2.new(1, 0, 0, 28)
 EffectsSubTabs.Position = UDim2.new(0, 0, 0, 0)
 EffectsSubTabs.BackgroundTransparency = 1
@@ -759,20 +759,20 @@ end
 local SubNickFx = makeSubTab("SubNickFx", "Эффекты ника", 0)
 local SubTextFx = makeSubTab("SubTextFx", "Эффекты текста", 120)
 
-local EffectsNickContent = Instance.new("Frame", EffectsContent)
+EffectsNickContent = Instance.new("Frame", EffectsContent)
 EffectsNickContent.Size = UDim2.new(1, 0, 1, -36)
 EffectsNickContent.Position = UDim2.new(0, 0, 0, 36)
 EffectsNickContent.BackgroundTransparency = 1
 EffectsNickContent.ZIndex = 7
 
-local EffectsTextContent = Instance.new("Frame", EffectsContent)
+EffectsTextContent = Instance.new("Frame", EffectsContent)
 EffectsTextContent.Size = UDim2.new(1, 0, 1, -36)
 EffectsTextContent.Position = UDim2.new(1, 0, 0, 36)
 EffectsTextContent.BackgroundTransparency = 1
 EffectsTextContent.ZIndex = 7
 
 --// ===================== CONTEXT MENU =====================
-local CMenu = Instance.new("Frame", SG)
+CMenu = Instance.new("Frame", SG)
 CMenu.Name = "ContextMenu"
 CMenu.Size = UDim2.new(0, 200, 0, 0)
 CMenu.BackgroundColor3 = Color3.fromRGB(24, 24, 34)
@@ -781,11 +781,11 @@ CMenu.ZIndex = 100
 CMenu.Active = true
 CMenu.ClipsDescendants = true
 Instance.new("UICorner", CMenu).CornerRadius = UDim.new(0, 12)
-local CMenuStroke = Instance.new("UIStroke", CMenu)
+CMenuStroke = Instance.new("UIStroke", CMenu)
 CMenuStroke.Color = col
 CMenuStroke.Thickness = 1.2
 
-local CMenuLayout = Instance.new("UIListLayout", CMenu)
+CMenuLayout = Instance.new("UIListLayout", CMenu)
 CMenuLayout.SortOrder = Enum.SortOrder.LayoutOrder
 CMenuLayout.Padding = UDim.new(0, 4)
 
@@ -823,25 +823,25 @@ CMenuLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 end)
 
 --// ===================== PROFILE WINDOW =====================
-local ProfileFrame = Instance.new("Frame", SG)
+ProfileFrame = Instance.new("Frame", SG)
 ProfileFrame.Size = UDim2.new(0, 260, 0, 0)
 ProfileFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
 ProfileFrame.Visible = false
 ProfileFrame.ZIndex = 150
 ProfileFrame.ClipsDescendants = true
 Instance.new("UICorner", ProfileFrame).CornerRadius = UDim.new(0, 14)
-local ProfileStroke = Instance.new("UIStroke", ProfileFrame)
+ProfileStroke = Instance.new("UIStroke", ProfileFrame)
 ProfileStroke.Color = col
 ProfileStroke.Thickness = 1.5
 
-local ProfileAvatar = Instance.new("ImageLabel", ProfileFrame)
+ProfileAvatar = Instance.new("ImageLabel", ProfileFrame)
 ProfileAvatar.Size = UDim2.new(0, 70, 0, 70)
 ProfileAvatar.Position = UDim2.new(0, 14, 0, 14)
 ProfileAvatar.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
 ProfileAvatar.Image = ""
 Instance.new("UICorner", ProfileAvatar).CornerRadius = UDim.new(1, 0)
 
-local ProfileName = Instance.new("TextLabel", ProfileFrame)
+ProfileName = Instance.new("TextLabel", ProfileFrame)
 ProfileName.Size = UDim2.new(1, -100, 0, 22)
 ProfileName.Position = UDim2.new(0, 94, 0, 16)
 ProfileName.BackgroundTransparency = 1
@@ -851,7 +851,7 @@ ProfileName.Font = Enum.Font.GothamBold
 ProfileName.TextSize = 15
 ProfileName.TextXAlignment = Enum.TextXAlignment.Left
 
-local ProfileStatus = Instance.new("TextLabel", ProfileFrame)
+ProfileStatus = Instance.new("TextLabel", ProfileFrame)
 ProfileStatus.Size = UDim2.new(1, -100, 0, 18)
 ProfileStatus.Position = UDim2.new(0, 94, 0, 40)
 ProfileStatus.BackgroundTransparency = 1
@@ -861,7 +861,7 @@ ProfileStatus.Font = Enum.Font.Gotham
 ProfileStatus.TextSize = 12
 ProfileStatus.TextXAlignment = Enum.TextXAlignment.Left
 
-local ProfileGame = Instance.new("TextLabel", ProfileFrame)
+ProfileGame = Instance.new("TextLabel", ProfileFrame)
 ProfileGame.Size = UDim2.new(1, -28, 0, 18)
 ProfileGame.Position = UDim2.new(0, 14, 0, 96)
 ProfileGame.BackgroundTransparency = 1
@@ -871,7 +871,7 @@ ProfileGame.Font = Enum.Font.Gotham
 ProfileGame.TextSize = 12
 ProfileGame.TextXAlignment = Enum.TextXAlignment.Left
 
-local ProfileVoice = Instance.new("TextLabel", ProfileFrame)
+ProfileVoice = Instance.new("TextLabel", ProfileFrame)
 ProfileVoice.Size = UDim2.new(1, -28, 0, 18)
 ProfileVoice.Position = UDim2.new(0, 14, 0, 116)
 ProfileVoice.BackgroundTransparency = 1
@@ -881,7 +881,7 @@ ProfileVoice.Font = Enum.Font.Gotham
 ProfileVoice.TextSize = 12
 ProfileVoice.TextXAlignment = Enum.TextXAlignment.Left
 
-local ProfileClose = Instance.new("TextButton", ProfileFrame)
+ProfileClose = Instance.new("TextButton", ProfileFrame)
 ProfileClose.Size = UDim2.new(0, 24, 0, 24)
 ProfileClose.Position = UDim2.new(1, -32, 0, 8)
 ProfileClose.BackgroundTransparency = 1
@@ -892,13 +892,13 @@ ProfileClose.TextSize = 16
 ProfileClose.ZIndex = 151
 
 --// ===================== EMOJI REACTION PICKER =====================
-local ReactionPicker = Instance.new("Frame", SG)
+ReactionPicker = Instance.new("Frame", SG)
 ReactionPicker.Size = UDim2.new(0, 260, 0, 44)
 ReactionPicker.BackgroundColor3 = Color3.fromRGB(24, 24, 34)
 ReactionPicker.Visible = false
 ReactionPicker.ZIndex = 120
 Instance.new("UICorner", ReactionPicker).CornerRadius = UDim.new(0, 12)
-local ReactionStroke = Instance.new("UIStroke", ReactionPicker)
+ReactionStroke = Instance.new("UIStroke", ReactionPicker)
 ReactionStroke.Color = col
 ReactionStroke.Thickness = 1.2
 
@@ -917,7 +917,7 @@ for i, emoji in ipairs(EMOJI_LIST) do
 end
 
 --// ===================== DYNAMIC ISLAND / PM =====================
-local Island = Instance.new("Frame", SG)
+Island = Instance.new("Frame", SG)
 Island.Name = "DynamicIslandPM"
 Island.AnchorPoint = Vector2.new(0.5, 0)
 Island.Size = UDim2.new(0, 180, 0, 36)
@@ -927,11 +927,11 @@ Island.ClipsDescendants = true
 Island.ZIndex = 20
 Instance.new("UICorner", Island).CornerRadius = UDim.new(1, 0)
 
-local IslandStroke = Instance.new("UIStroke", Island)
+IslandStroke = Instance.new("UIStroke", Island)
 IslandStroke.Color = col
 IslandStroke.Thickness = 1.5
 
-local IslandText = Instance.new("TextLabel", Island)
+IslandText = Instance.new("TextLabel", Island)
 IslandText.Size = UDim2.new(1, 0, 1, 0)
 IslandText.BackgroundTransparency = 1
 IslandText.Text = "✉️ Личные сообщения"
@@ -940,13 +940,13 @@ IslandText.Font = Enum.Font.GothamBold
 IslandText.TextSize = 12
 IslandText.ZIndex = 21
 
-local IslandOpenButton = Instance.new("TextButton", Island)
+IslandOpenButton = Instance.new("TextButton", Island)
 IslandOpenButton.Size = UDim2.new(1, 0, 1, 0)
 IslandOpenButton.BackgroundTransparency = 1
 IslandOpenButton.Text = ""
 IslandOpenButton.ZIndex = 22
 
-local IslandClose = Instance.new("TextButton", Island)
+IslandClose = Instance.new("TextButton", Island)
 IslandClose.Size = UDim2.new(0, 30, 0, 30)
 IslandClose.Position = UDim2.new(1, -36, 0, 6)
 IslandClose.BackgroundTransparency = 1
@@ -957,7 +957,7 @@ IslandClose.TextSize = 16
 IslandClose.Visible = false
 IslandClose.ZIndex = 25
 
-local PMTitle = Instance.new("TextLabel", Island)
+PMTitle = Instance.new("TextLabel", Island)
 PMTitle.Size = UDim2.new(1, -50, 0, 34)
 PMTitle.Position = UDim2.new(0, 18, 0, 5)
 PMTitle.BackgroundTransparency = 1
@@ -969,7 +969,7 @@ PMTitle.TextXAlignment = Enum.TextXAlignment.Left
 PMTitle.Visible = false
 PMTitle.ZIndex = 24
 
-local PMList = Instance.new("ScrollingFrame", Island)
+PMList = Instance.new("ScrollingFrame", Island)
 PMList.Size = UDim2.new(0, 180, 1, -58)
 PMList.Position = UDim2.new(0, 12, 0, 48)
 PMList.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
@@ -980,12 +980,12 @@ PMList.ScrollBarImageColor3 = col
 PMList.Visible = false
 PMList.ZIndex = 23
 Instance.new("UICorner", PMList).CornerRadius = UDim.new(0, 10)
-local PMListLayout = Instance.new("UIListLayout", PMList)
+PMListLayout = Instance.new("UIListLayout", PMList)
 PMListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 PMListLayout.Padding = UDim.new(0, 6)
 PMListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() PMList.CanvasSize = UDim2.new(0, 0, 0, PMListLayout.AbsoluteContentSize.Y + 10) end)
 
-local PMHeader = Instance.new("TextLabel", Island)
+PMHeader = Instance.new("TextLabel", Island)
 PMHeader.Size = UDim2.new(1, -210, 0, 30)
 PMHeader.Position = UDim2.new(0, 200, 0, 48)
 PMHeader.BackgroundTransparency = 1
@@ -997,7 +997,7 @@ PMHeader.TextXAlignment = Enum.TextXAlignment.Left
 PMHeader.Visible = false
 PMHeader.ZIndex = 23
 
-local PMMessages = Instance.new("ScrollingFrame", Island)
+PMMessages = Instance.new("ScrollingFrame", Island)
 PMMessages.Size = UDim2.new(1, -210, 1, -145)
 PMMessages.Position = UDim2.new(0, 200, 0, 82)
 PMMessages.BackgroundTransparency = 1
@@ -1006,7 +1006,7 @@ PMMessages.ScrollBarThickness = 3
 PMMessages.ScrollBarImageColor3 = col
 PMMessages.Visible = false
 PMMessages.ZIndex = 23
-local PMMsgLayout = Instance.new("UIListLayout", PMMessages)
+PMMsgLayout = Instance.new("UIListLayout", PMMessages)
 PMMsgLayout.SortOrder = Enum.SortOrder.LayoutOrder
 PMMsgLayout.Padding = UDim.new(0, 7)
 PMMsgLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
@@ -1014,7 +1014,7 @@ PMMsgLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 	PMMessages.CanvasPosition = Vector2.new(0, math.max(0, PMMsgLayout.AbsoluteContentSize.Y - PMMessages.AbsoluteSize.Y + 10))
 end)
 
-local PMInput = Instance.new("TextBox", Island)
+PMInput = Instance.new("TextBox", Island)
 PMInput.Size = UDim2.new(1, -285, 0, 36)
 PMInput.Position = UDim2.new(0, 200, 1, -50)
 PMInput.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
@@ -1031,7 +1031,7 @@ PMInput.ZIndex = 23
 Instance.new("UICorner", PMInput).CornerRadius = UDim.new(0, 9)
 Instance.new("UIPadding", PMInput).PaddingLeft = UDim.new(0, 12)
 
-local PMGifButton = Instance.new("TextButton", Island)
+PMGifButton = Instance.new("TextButton", Island)
 PMGifButton.Size = UDim2.new(0, 38, 0, 36)
 PMGifButton.Position = UDim2.new(1, -80, 1, -50)
 PMGifButton.BackgroundColor3 = Color3.fromRGB(30, 30, 42)
@@ -1041,7 +1041,7 @@ PMGifButton.Visible = false
 PMGifButton.ZIndex = 23
 Instance.new("UICorner", PMGifButton).CornerRadius = UDim.new(0, 9)
 
-local PMSend = Instance.new("TextButton", Island)
+PMSend = Instance.new("TextButton", Island)
 PMSend.Size = UDim2.new(0, 38, 0, 36)
 PMSend.Position = UDim2.new(1, -38, 1, -50)
 PMSend.BackgroundColor3 = Color3.fromRGB(30, 30, 42)
@@ -1053,7 +1053,7 @@ PMSend.Visible = false
 PMSend.ZIndex = 23
 Instance.new("UICorner", PMSend).CornerRadius = UDim.new(0, 9)
 
-local PMGifPanel = Instance.new("ScrollingFrame", Island)
+PMGifPanel = Instance.new("ScrollingFrame", Island)
 PMGifPanel.Size = UDim2.new(0, 240, 0, 170)
 PMGifPanel.Position = UDim2.new(1, -252, 1, -225)
 PMGifPanel.BackgroundColor3 = Color3.fromRGB(18, 18, 26)
@@ -1065,12 +1065,12 @@ PMGifPanel.Visible = false
 PMGifPanel.ZIndex = 30
 Instance.new("UICorner", PMGifPanel).CornerRadius = UDim.new(0, 10)
 
-local PMGifGrid = Instance.new("UIGridLayout", PMGifPanel)
+PMGifGrid = Instance.new("UIGridLayout", PMGifPanel)
 PMGifGrid.CellSize = UDim2.new(0, 62, 0, 62)
 PMGifGrid.CellPadding = UDim2.new(0, 8, 0, 8)
 PMGifGrid:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() PMGifPanel.CanvasSize = UDim2.new(0, 0, 0, PMGifGrid.AbsoluteContentSize.Y + 10) end)
 
-local IslandResize = Instance.new("ImageLabel", Island)
+IslandResize = Instance.new("ImageLabel", Island)
 IslandResize.Size = UDim2.new(0, 16, 0, 16)
 IslandResize.Position = UDim2.new(1, -19, 1, -19)
 IslandResize.BackgroundTransparency = 1
