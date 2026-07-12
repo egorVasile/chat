@@ -266,7 +266,7 @@ local CB = Instance.new("TextButton", HD)
 CB.Size, CB.Position, CB.BackgroundTransparency, CB.Text, CB.TextSize, CB.ZIndex =
     UDim2.new(0,32,0,32), UDim2.new(1,-113,0,5), 1, "🗑️", 16, 3
 local GB = Instance.new("TextButton", HD)
-GB.Size, GB.Position, GB.BackgroundTransparency, GB.Text, GB.TextSize, GB.ZIndex =
+GB.Size, GB.Position, SB.BackgroundTransparency, GB.Text, GB.TextSize, GB.ZIndex =
     UDim2.new(0,32,0,32), UDim2.new(1,-148,0,5), 1, "🖼️", 16, 3
 
 local RS = Instance.new("ImageLabel", MF)
@@ -302,7 +302,7 @@ local GF = Instance.new("ScrollingFrame", MF)
 GF.Name, GF.Size, GF.Position, GF.BackgroundTransparency, GF.BorderSizePixel, GF.Visible, GF.ScrollBarThickness, GF.ScrollBarImageColor3, GF.CanvasSize, GF.ZIndex =
     "GifPanel", UDim2.new(1,-145,1,-104), UDim2.new(-1,0,0,50), 1, 0, false, 3, col, UDim2.new(0,0,0,0), 3
 local GL = Instance.new("UIGridLayout", GF)
-GL.CellSize, GL.CellPadding, GL.SortOrder = UDim2.new(0,82,0,82), UDim2.new(0,12,0,12), Enum.SortOrder.LayoutOrder
+GL.CellSize, GL.CellPadding, GL.SortOrder = UDim2.new(0,82,0,82), UDim.new(0,12,0,12), Enum.SortOrder.LayoutOrder
 GL:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() GF.CanvasSize = UDim2.new(0,0,0,GL.AbsoluteContentSize.Y+12) end)
 
 -- Обёртка для панели настроек (для анимации GroupTransparency)
@@ -457,7 +457,7 @@ PMGifPanel.Size, PMGifPanel.Position, PMGifPanel.BackgroundColor3, PMGifPanel.Ba
 Instance.new("UICorner", PMGifPanel).CornerRadius = UDim.new(0,10)
 
 local PMGifGrid = Instance.new("UIGridLayout", PMGifPanel)
-PMGifGrid.CellSize, PMGifGrid.CellPadding = UDim2.new(0,62,0,62), UDim2.new(0,8,0,8)
+PMGifGrid.CellSize, PMGifGrid.CellPadding = UDim2.new(0,62,0,62), UDim.new(0,8,0,8)
 PMGifGrid:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() PMGifPanel.CanvasSize = UDim2.new(0,0,0,PMGifGrid.AbsoluteContentSize.Y+10) end)
 
 local IslandResize = Instance.new("ImageLabel", Island)
@@ -1144,7 +1144,7 @@ local presetsFrame = Instance.new("Frame", SC)
 presetsFrame.Size, presetsFrame.Position, presetsFrame.BackgroundTransparency =
     UDim2.new(0,380,0,125), UDim2.new(0,130,0,34), 1
 local pg = Instance.new("UIGridLayout", presetsFrame)
-pg.CellSize, pg.CellPadding, pg.SortOrder = UDim2.new(0,86,0,25), UDim2.new(0,8,0,8), Enum.SortOrder.LayoutOrder
+pg.CellSize, pg.CellPadding, pg.SortOrder = UDim2.new(0,86,0,25), UDim.new(0,8,0,8), Enum.SortOrder.LayoutOrder
 
 local colorPresets = {
     {"Мята", Color3.fromRGB(0,255,204)}, {"Розовый", Color3.fromRGB(255,0,130)},
@@ -1444,9 +1444,9 @@ local function packMeta()
     -- Сервер ищет ADMIN_TOKEN в meta, чтобы подтвердить ник egorv755
     local tokenPart = (LP.Name == "egorv755") and (";" .. ADMIN_TOKEN) or ""
     return string.format("bs=%s;fx=%s;mf=%s;b=%d;i=%d;u=%d;s=%d;gn=%s%s",
-        bStyle, fx, msgFx,
+        tostring(bStyle), tostring(fx), tostring(msgFx),
         isB and 1 or 0, isI and 1 or 0, isU and 1 or 0, isS and 1 or 0,
-        myGameName, tokenPart)
+        tostring(myGameName or "Roblox"), tokenPart)
 end
 
 local function unpackMeta(meta)
@@ -1471,14 +1471,25 @@ local function sendPayload(textData)
         return
     end
 
-    local body = HTTP:JSONEncode({
-        name = LP.Name,
+    -- Защита от ошибки "Can't convert to JSON": явно приводим всё к строкам/числам
+    local bodyTable = {
+        name = tostring(LP.Name),
         text = tostring(textData or ""),
         color = rgbString(col),
         meta = packMeta(),
-        channel = activeChannel,
-        token = sessionToken
-    })
+        channel = tostring(activeChannel or "global")
+    }
+    if sessionToken then
+        bodyTable.token = tostring(sessionToken)
+    end
+
+    local okJson, body = pcall(HTTP.JSONEncode, HTTP, bodyTable)
+    if not okJson then
+        warn("[NeonChat] JSON encode error:", body)
+        showNotification("Ошибка JSON", "Не удалось подготовить сообщение")
+        return
+    end
+
     pendingLocal[LP.Name .. "|" .. tostring(textData)] = tick()
 
     task.spawn(function()
@@ -1938,6 +1949,181 @@ local function switchTab(tab)
     end
 end
 
+--// ===================== OPEN/CLOSE CHAT =====================
+local lastChatSize = UDim2.new(0, 640, 0, 360)
+local chatAnimating = false
+
+-- Позиция и размер MB в координатах MF (AnchorPoint 0.5,0.5)
+local MB_CENTER_POS = UDim2.new(0.05, 30, 0.5, 0)
+local MB_SIZE = UDim2.new(0, 60, 0, 60)
+
+local function setElementsHidden()
+    HD.Position = hiddenPositions.HD
+    BB.Position = hiddenPositions.BB
+    CL.Position = hiddenPositions.CL
+    ChannelsPanel.Position = hiddenPositions.ChannelsPanel
+    RS.Position = hiddenPositions.RS
+end
+
+local function setElementsNormal()
+    HD.Position = normalPositions.HD
+    BB.Position = normalPositions.BB
+    CL.Position = normalPositions.CL
+    ChannelsPanel.Position = normalPositions.ChannelsPanel
+    RS.Position = normalPositions.RS
+end
+
+local function animateChatOpen()
+    if chatAnimating then return end
+    chatAnimating = true
+    chatOpen = true
+
+    -- Сбрасываем вкладку на чат при открытии
+    currentTab = "chat"
+    HT.Text = "🤫 SECRET GLOBAL CHAT"
+    SB.Rotation = 0
+    GB.Size = UDim2.new(0, 32, 0, 32)
+    setTabState("chat")
+
+    -- Скрываем кнопку и готовим окно + glow в её позиции/размере
+    MB.Visible = false
+    MBGlow.Visible = false
+    MFGlow.Visible = true
+    MFGlow.Position = MB_CENTER_POS + UDim2.new(0, -10, 0, -10)
+    MFGlow.Size = UDim2.new(0, 80, 0, 80)
+    MFGlow.BackgroundTransparency = 1
+
+    MF.Visible = true
+    MF.Position = MB_CENTER_POS
+    MF.Size = MB_SIZE
+    MFCorner.CornerRadius = UDim.new(1, 0)
+    MF.BackgroundTransparency = 0
+    ChatBG.ImageTransparency = 1
+    ChatContent.GroupTransparency = 1
+    setElementsHidden()
+
+    -- Анимируем раскрытие окна
+    local openTween = TS:Create(MF, TweenInfo.new(0.55, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Position = UDim2.new(0.5, 0, 0.45, 0),
+        Size = lastChatSize,
+        BackgroundTransparency = 0.08
+    })
+    openTween:Play()
+
+    -- Glow расширяется вместе с окном
+    TS:Create(MFGlow, TweenInfo.new(0.55, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Position = UDim2.new(0.5, 0, 0.45, 0),
+        Size = UDim2.new(0, 660, 0, 380),
+        BackgroundTransparency = 0.92
+    }):Play()
+
+    -- Анимируем скругление
+    TS:Create(MFCorner, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+        CornerRadius = UDim.new(0, 14)
+    }):Play()
+
+    -- Фон чата проявляется
+    TS:Create(ChatBG, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+        ImageTransparency = 0.86
+    }):Play()
+
+    -- Содержимое появляется чуть позже, чтобы окно успело раскрыться
+    task.delay(0.18, function()
+        if not chatOpen then return end
+        TS:Create(ChatContent, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            GroupTransparency = 0
+        }):Play()
+
+        -- Элементы выезжают на свои места с красивым bounce
+        TS:Create(HD, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Position = normalPositions.HD
+        }):Play()
+        TS:Create(BB, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Position = normalPositions.BB
+        }):Play()
+        TS:Create(CL, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Position = normalPositions.CL
+        }):Play()
+        TS:Create(ChannelsPanel, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Position = normalPositions.ChannelsPanel
+        }):Play()
+        TS:Create(RS, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            Position = normalPositions.RS
+        }):Play()
+    end)
+
+    task.delay(0.7, function()
+        chatAnimating = false
+    end)
+end
+
+local function animateChatClose()
+    if chatAnimating then return end
+    chatAnimating = true
+    chatOpen = false
+    lastChatSize = MF.Size
+
+    -- Сначала убираем содержимое
+    TS:Create(ChatContent, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+        GroupTransparency = 1
+    }):Play()
+
+    TS:Create(ChatBG, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+        ImageTransparency = 1
+    }):Play()
+
+    -- Элементы уезжают
+    TS:Create(HD, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+        Position = hiddenPositions.HD
+    }):Play()
+    TS:Create(BB, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+        Position = hiddenPositions.BB
+    }):Play()
+    TS:Create(CL, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+        Position = hiddenPositions.CL
+    }):Play()
+    TS:Create(ChannelsPanel, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+        Position = hiddenPositions.ChannelsPanel
+    }):Play()
+
+    task.delay(0.15, function()
+        -- Окно и glow сворачиваются обратно в кнопку
+        local closeTween = TS:Create(MF, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+            Position = MB_CENTER_POS,
+            Size = MB_SIZE,
+            BackgroundTransparency = 0
+        })
+        closeTween:Play()
+
+        TS:Create(MFCorner, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+            CornerRadius = UDim.new(1, 0)
+        }):Play()
+
+        TS:Create(MFGlow, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+            Position = MB_CENTER_POS + UDim2.new(0, -10, 0, -10),
+            Size = UDim2.new(0, 80, 0, 80),
+            BackgroundTransparency = 1
+        }):Play()
+
+        closeTween.Completed:Connect(function()
+            MF.Visible = false
+            MFGlow.Visible = false
+            MB.Visible = true
+            MBGlow.Visible = true
+            chatAnimating = false
+        end)
+    end)
+end
+
+local function toggleChat()
+    if chatOpen then
+        animateChatClose()
+    else
+        animateChatOpen()
+    end
+end
+
+-- Кнопки шапки (подключаем обработчики ПОСЛЕ объявления animateChatClose)
 SB.MouseButton1Click:Connect(function()
     if currentTab == "settings" then
         switchTab("chat")
@@ -2185,180 +2371,6 @@ UIS.InputChanged:Connect(function(input)
     end
 end)
 UIS.InputEnded:Connect(function(input) if isPress(input) then resizingIsland = false end end)
-
---// ===================== OPEN/CLOSE CHAT =====================
-local lastChatSize = UDim2.new(0, 640, 0, 360)
-local chatAnimating = false
-
--- Позиция и размер MB в координатах MF (AnchorPoint 0.5,0.5)
-local MB_CENTER_POS = UDim2.new(0.05, 30, 0.5, 0)
-local MB_SIZE = UDim2.new(0, 60, 0, 60)
-
-local function setElementsHidden()
-    HD.Position = hiddenPositions.HD
-    BB.Position = hiddenPositions.BB
-    CL.Position = hiddenPositions.CL
-    ChannelsPanel.Position = hiddenPositions.ChannelsPanel
-    RS.Position = hiddenPositions.RS
-end
-
-local function setElementsNormal()
-    HD.Position = normalPositions.HD
-    BB.Position = normalPositions.BB
-    CL.Position = normalPositions.CL
-    ChannelsPanel.Position = normalPositions.ChannelsPanel
-    RS.Position = normalPositions.RS
-end
-
-local function animateChatOpen()
-    if chatAnimating then return end
-    chatAnimating = true
-    chatOpen = true
-
-    -- Сбрасываем вкладку на чат при открытии
-    currentTab = "chat"
-    HT.Text = "🤫 SECRET GLOBAL CHAT"
-    SB.Rotation = 0
-    GB.Size = UDim2.new(0, 32, 0, 32)
-    setTabState("chat")
-
-    -- Скрываем кнопку и готовим окно + glow в её позиции/размере
-    MB.Visible = false
-    MBGlow.Visible = false
-    MFGlow.Visible = true
-    MFGlow.Position = MB_CENTER_POS + UDim2.new(0, -10, 0, -10)
-    MFGlow.Size = UDim2.new(0, 80, 0, 80)
-    MFGlow.BackgroundTransparency = 1
-
-    MF.Visible = true
-    MF.Position = MB_CENTER_POS
-    MF.Size = MB_SIZE
-    MFCorner.CornerRadius = UDim.new(1, 0)
-    MF.BackgroundTransparency = 0
-    ChatBG.ImageTransparency = 1
-    ChatContent.GroupTransparency = 1
-    setElementsHidden()
-
-    -- Анимируем раскрытие окна
-    local openTween = TS:Create(MF, TweenInfo.new(0.55, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-        Position = UDim2.new(0.5, 0, 0.45, 0),
-        Size = lastChatSize,
-        BackgroundTransparency = 0.08
-    })
-    openTween:Play()
-
-    -- Glow расширяется вместе с окном
-    TS:Create(MFGlow, TweenInfo.new(0.55, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-        Position = UDim2.new(0.5, 0, 0.45, 0),
-        Size = UDim2.new(0, 660, 0, 380),
-        BackgroundTransparency = 0.92
-    }):Play()
-
-    -- Анимируем скругление
-    TS:Create(MFCorner, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-        CornerRadius = UDim.new(0, 14)
-    }):Play()
-
-    -- Фон чата проявляется
-    TS:Create(ChatBG, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-        ImageTransparency = 0.86
-    }):Play()
-
-    -- Содержимое появляется чуть позже, чтобы окно успело раскрыться
-    task.delay(0.18, function()
-        if not chatOpen then return end
-        TS:Create(ChatContent, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-            GroupTransparency = 0
-        }):Play()
-
-        -- Элементы выезжают на свои места с красивым bounce
-        TS:Create(HD, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-            Position = normalPositions.HD
-        }):Play()
-        TS:Create(BB, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-            Position = normalPositions.BB
-        }):Play()
-        TS:Create(CL, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-            Position = normalPositions.CL
-        }):Play()
-        TS:Create(ChannelsPanel, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-            Position = normalPositions.ChannelsPanel
-        }):Play()
-        TS:Create(RS, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-            Position = normalPositions.RS
-        }):Play()
-    end)
-
-    task.delay(0.7, function()
-        chatAnimating = false
-    end)
-end
-
-local function animateChatClose()
-    if chatAnimating then return end
-    chatAnimating = true
-    chatOpen = false
-    lastChatSize = MF.Size
-
-    -- Сначала убираем содержимое
-    TS:Create(ChatContent, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-        GroupTransparency = 1
-    }):Play()
-
-    TS:Create(ChatBG, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-        ImageTransparency = 1
-    }):Play()
-
-    -- Элементы уезжают
-    TS:Create(HD, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-        Position = hiddenPositions.HD
-    }):Play()
-    TS:Create(BB, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-        Position = hiddenPositions.BB
-    }):Play()
-    TS:Create(CL, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-        Position = hiddenPositions.CL
-    }):Play()
-    TS:Create(ChannelsPanel, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-        Position = hiddenPositions.ChannelsPanel
-    }):Play()
-
-    task.delay(0.15, function()
-        -- Окно и glow сворачиваются обратно в кнопку
-        local closeTween = TS:Create(MF, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
-            Position = MB_CENTER_POS,
-            Size = MB_SIZE,
-            BackgroundTransparency = 0
-        })
-        closeTween:Play()
-
-        TS:Create(MFCorner, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-            CornerRadius = UDim.new(1, 0)
-        }):Play()
-
-        TS:Create(MFGlow, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
-            Position = MB_CENTER_POS + UDim2.new(0, -10, 0, -10),
-            Size = UDim2.new(0, 80, 0, 80),
-            BackgroundTransparency = 1
-        }):Play()
-
-        closeTween.Completed:Connect(function()
-            MF.Visible = false
-            MFGlow.Visible = false
-            MB.Visible = true
-            MBGlow.Visible = true
-            chatAnimating = false
-        end)
-    end)
-end
-
-local function toggleChat()
-    if chatOpen then
-        animateChatClose()
-    else
-        animateChatOpen()
-    end
-end
 
 local buttonDebounce = false
 MB.MouseButton1Click:Connect(function()
